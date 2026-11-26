@@ -2,6 +2,9 @@
 
 #include "../PluginProcessor.h"
 
+#include <mbox/analysis/Waveform.h>
+
+#include <algorithm>
 #include <cmath>
 
 namespace mbox
@@ -65,6 +68,12 @@ HarmonicSpectrumWidget::HarmonicSpectrumWidget (AppState& s) : Widget (s)
             engine->synthAudible.store (audibleButton.getToggleState());
     };
     addAndMakeVisible (audibleButton);
+
+    waveformButton.setButtonText ("Onde");
+    waveformButton.setToggleState (true, juce::dontSendNotification);
+    waveformButton.setTooltip (utf8 ("Affiche la forme d'onde du signal analys\xc3\xa9 (oscilloscope cal\xc3\xa9 sur la p\xc3\xa9riode de la note la plus grave)."));
+    waveformButton.onClick = [this] { resized(); repaint(); };
+    addAndMakeVisible (waveformButton);
 
     partialsLabel.setJustificationType (juce::Justification::centredRight);
     addAndMakeVisible (partialsLabel);
@@ -139,11 +148,19 @@ void HarmonicSpectrumWidget::resized()
     sourceBox.setBounds (bar.removeFromLeft (150));
     bar.removeFromLeft (8);
     audibleButton.setBounds (bar.removeFromLeft (80));
+    waveformButton.setBounds (bar.removeFromLeft (70));
     partialsSlider.setBounds (bar.removeFromRight (130));
     partialsLabel.setBounds (bar.removeFromRight (60));
 
     infoArea = area.removeFromBottom (40);
     area.removeFromBottom (4);
+
+    waveformArea = {};
+    if (waveformButton.getToggleState())
+    {
+        waveformArea = area.removeFromBottom (juce::jlimit (60, 140, area.getHeight() / 4)).withTrimmedLeft (44);
+        area.removeFromBottom (6);
+    }
 
     axisArea      = area.removeFromLeft (44);
     spectrumArea  = area.removeFromRight (juce::jmax (120, area.getWidth() / 3));
@@ -309,6 +326,9 @@ void HarmonicSpectrumWidget::paint (juce::Graphics& g)
     paintFrequencyAxis (g, axisArea.toFloat());
     paintSpectrum (g, spectrumArea.toFloat());
     paintInfo (g, infoArea);
+
+    if (! waveformArea.isEmpty())
+        paintWaveform (g, waveformArea.toFloat());
 }
 
 void HarmonicSpectrumWidget::paintFrequencyAxis (juce::Graphics& g, juce::Rectangle<float> area)
@@ -430,6 +450,64 @@ void HarmonicSpectrumWidget::paintInfo (juce::Graphics& g, juce::Rectangle<int> 
     g.drawText (utf8 ("Rugosit\xc3\xa9 : ") + juce::String (chordRoughness, 2)
                     + "   |   Partiels communs : " + juce::String (static_cast<int> (coincidences.size())),
                 area, juce::Justification::centredLeft);
+}
+
+void HarmonicSpectrumWidget::paintWaveform (juce::Graphics& g, juce::Rectangle<float> area)
+{
+    g.setColour (colours::background);
+    g.fillRect (area);
+    g.setColour (kGrid);
+    g.drawHorizontalLine (juce::roundToInt (area.getCentreY()), area.getX(), area.getRight());
+    g.drawRect (area);
+
+    const auto& samples = engine->getRecentSamples();
+    const auto sr       = engine->getSampleRate();
+    if (samples.empty() || sr <= 0.0)
+        return;
+
+    // Window: four periods of the lowest active note, triggered on its cycle so
+    // the wave stands still; 20 ms without notes.
+    constexpr int kPeriods = 4;
+    std::optional<double> period;
+    if (! fundamentals.empty())
+        period = 1.0 / *std::min_element (fundamentals.begin(), fundamentals.end());
+
+    const auto windowSeconds = period ? juce::jlimit (0.004, 0.08, kPeriods * *period) : 0.02;
+    const auto window = static_cast<std::size_t> (juce::jlimit (64.0, static_cast<double> (samples.size() / 2), windowSeconds * sr));
+    const auto search = static_cast<std::size_t> (period ? *period * sr : static_cast<double> (window));
+    const auto start  = analysis::findTriggerIndex (samples, window, search);
+
+    // Auto gain, without blowing up silence.
+    float peak = 0.0f;
+    for (std::size_t i = start; i < start + window; ++i)
+        peak = juce::jmax (peak, std::abs (samples[i]));
+    const auto gain = 0.45f * area.getHeight() / juce::jmax (peak, 0.02f);
+
+    juce::Path wave;
+    const auto width = static_cast<int> (area.getWidth());
+    for (int px = 0; px <= width; ++px)
+    {
+        const auto pos  = static_cast<double> (px) / juce::jmax (1, width) * static_cast<double> (window - 1);
+        const auto i0   = start + static_cast<std::size_t> (pos);
+        const auto i1   = juce::jmin (i0 + 1, samples.size() - 1);
+        const auto frac = static_cast<float> (pos - std::floor (pos));
+        const auto v    = samples[i0] * (1.0f - frac) + samples[i1] * frac;
+        const auto x    = area.getX() + static_cast<float> (px);
+        const auto y    = area.getCentreY() - v * gain;
+        if (px == 0) wave.startNewSubPath (x, y);
+        else         wave.lineTo (x, y);
+    }
+    g.setColour (colours::accent);
+    g.strokePath (wave, juce::PathStrokeType (1.5f));
+
+    // Caption: time span and level.
+    juce::String caption = juce::String (window * 1000.0 / sr, 1) + " ms";
+    if (period)
+        caption << utf8 (" \xc2\xb7 ") << kPeriods << utf8 (" p\xc3\xa9riodes de ") << noteLabel (1.0 / *period, false);
+    caption << utf8 (" \xc2\xb7 cr\xc3\xaate ") << juce::roundToInt (juce::Decibels::gainToDecibels (peak, -100.0f)) << " dBFS";
+    g.setColour (colours::textDim);
+    g.setFont (juce::FontOptions (11.0f));
+    g.drawText (caption, area.reduced (6.0f, 3.0f), juce::Justification::topRight);
 }
 
 } // namespace mbox

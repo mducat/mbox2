@@ -4,6 +4,7 @@ add_library(mbox_theory STATIC
     src/Chord.cpp
     src/Tuning.cpp
     src/analysis/Harmonics.cpp
+    src/analysis/Waveform.cpp
     src/Harmony.cpp
     src/Spelling.cpp
     src/Voicing.cpp

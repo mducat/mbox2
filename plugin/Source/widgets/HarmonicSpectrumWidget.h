@@ -53,17 +53,19 @@ private:
     void paintFrequencyAxis (juce::Graphics&, juce::Rectangle<float> area);
     void paintSpectrum (juce::Graphics&, juce::Rectangle<float> area);
     void paintInfo (juce::Graphics&, juce::Rectangle<int> area);
+    void paintWaveform (juce::Graphics&, juce::Rectangle<float> area);
 
     spectrum::SpectrumEngine* engine = nullptr; // owned by the processor, found through the editor
 
     juce::ComboBox sourceBox;
     juce::ToggleButton audibleButton { "Audible" };
+    juce::ToggleButton waveformButton;
     juce::Label partialsLabel { {}, "Partiels" };
     juce::Slider partialsSlider { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
     juce::TooltipWindow tooltips { this, 600 };
 
     // Layout
-    juce::Rectangle<int> axisArea, waterfallArea, spectrumArea, infoArea;
+    juce::Rectangle<int> axisArea, waterfallArea, spectrumArea, waveformArea, infoArea;
 
     // Spectrogram image and frequency mapping
     juce::Image waterfall;
