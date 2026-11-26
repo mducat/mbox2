@@ -4,6 +4,9 @@ add_library(mbox_theory STATIC
     src/Chord.cpp
     src/Tuning.cpp
     src/Harmony.cpp
+    src/instrument/Keyboard.cpp
+    src/instrument/Fretboard.cpp
+    src/instrument/GuitarVoicing.cpp
 )
 add_library(mbox::theory ALIAS mbox_theory)
 

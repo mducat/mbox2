@@ -1,6 +1,7 @@
 #include "WidgetRegistry.h"
 
 #include "CircleOfFifthsWidget.h"
+#include "InstrumentWidget.h"
 #include "TonalMapWidget.h"
 // One #include per widget, keep alphabetical to ease merges.
 
@@ -22,6 +23,7 @@ const std::vector<WidgetInfo>& allWidgets()
     static const std::vector<WidgetInfo> list {
         make<CircleOfFifthsWidget> ("circle-of-fifths", "Cercle des quintes"),
         make<TonalMapWidget>       ("tonal-map",        "Carte tonale"),
+        make<InstrumentWidget> ("instruments", "Piano / guitare"),
     };
     return list;
 }

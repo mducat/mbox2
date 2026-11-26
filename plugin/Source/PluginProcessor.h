@@ -1,6 +1,7 @@
 #pragma once
 
 #include "state/AppState.h"
+#include "state/ManualNoteOutput.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -52,6 +53,15 @@ public:
     /** Shared UI state (tuning, key, progression, active notes). Message thread only. */
     mbox::AppState& getAppState() noexcept { return appState; }
 
+    /** Plays the widgets' manual notes on the MIDI output (can be switched off). Message thread only. */
+    mbox::ManualNoteOutput& getManualNoteOutput() noexcept { return manualNoteOutput; }
+
+    /**
+        Queues a note-on/off from the UI; it is sent on the MIDI output at the
+        start of the next audio block. Message thread only (single producer).
+    */
+    void queueUiNote (int note, bool on) noexcept;
+
     /** Applies a state restored off the message thread, if any. Message thread only. */
     void applyPendingState();
 
@@ -64,6 +74,11 @@ private:
 
     std::array<std::atomic<std::uint64_t>, 2> heldNotes {};
     mbox::AppState appState;
+
+    // UI -> audio thread note queue (lock-free, single producer / single consumer).
+    juce::AbstractFifo uiNoteFifo { 512 };
+    std::array<std::int16_t, 512> uiNotes {}; // note number for note-on, -(note + 1) for note-off
+    mbox::ManualNoteOutput manualNoteOutput { appState, [this] (int note, bool on) { queueUiNote (note, on); } };
     juce::SpinLock pendingStateLock;
     juce::ValueTree pendingState;
 
