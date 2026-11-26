@@ -2,6 +2,9 @@ add_library(mbox_theory STATIC
     src/PitchClass.cpp
     src/Scale.cpp
     src/Chord.cpp
+    src/instrument/Keyboard.cpp
+    src/instrument/Fretboard.cpp
+    src/instrument/GuitarVoicing.cpp
 )
 add_library(mbox::theory ALIAS mbox_theory)
 
