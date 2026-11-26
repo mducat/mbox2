@@ -30,7 +30,7 @@ enveloppe JUCE (MIDI, état, interface).
 
 ## Prérequis (Windows)
 
-- **Visual Studio 2022** (ou Build Tools) avec la charge de travail
+- **Visual Studio 2022 ou plus récent** (ou Build Tools) avec la charge de travail
   « Développement Desktop en C++ »
 - **CMake ≥ 3.22** (inclus avec Visual Studio, ou https://cmake.org)
 - **Git**
@@ -40,21 +40,23 @@ JUCE 8 et Catch2 sont téléchargés automatiquement par CMake au premier config
 
 ## Compiler
 
-Depuis une invite « Developer PowerShell for VS 2022 » à la racine du repo :
+Depuis une invite « Developer PowerShell for VS » à la racine du repo :
 
 ```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake -S . -B build -A x64
 cmake --build build --config Release
 ```
 
-Le premier configure prend une minute (téléchargement de JUCE). Résultats :
+CMake choisit automatiquement la version de Visual Studio la plus récente
+installée (pour en forcer une : `-G "Visual Studio 17 2022"`). Le premier
+configure prend une minute (téléchargement de JUCE). Résultats :
 
 | Cible       | Emplacement                                                         |
 |-------------|---------------------------------------------------------------------|
 | VST3        | `build\plugin\MusicBox2_artefacts\Release\VST3\Music Box 2.vst3`    |
 | Standalone  | `build\plugin\MusicBox2_artefacts\Release\Standalone\Music Box 2.exe` |
 
-Pour travailler dans l'IDE, ouvrez `build\MusicBox2.sln`, ou ouvrez directement
+Pour travailler dans l'IDE, ouvrez la solution `MusicBox2` générée dans `build\`, ou ouvrez directement
 le dossier dans Visual Studio / CLion / VS Code (support CMake natif).
 
 ### Tests unitaires
