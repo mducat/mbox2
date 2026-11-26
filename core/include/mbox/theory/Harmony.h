@@ -15,6 +15,11 @@ namespace mbox::theory
     Functional harmony: keys, Roman-numeral chords and their tonal function
     (tonic / subdominant / dominant). This is the model behind the "tonal map"
     widget: pick a key, get every chord of the key grouped by function.
+
+    Common-practice harmony is defined on the 12-step chromatic scale, so this
+    model works in 12 divisions: a key given in another division count is
+    converted to its closest 12-TET tonic. Use RomanChord::voicingIn() to
+    realise a chord in an N-TET tuning (closest steps).
 */
 
 enum class Mode
@@ -114,6 +119,12 @@ struct RomanChord
         starting at bassOctaveStart (e.g. 48 = C3), the other notes stacked above it.
     */
     std::vector<int> voicing (int bassOctaveStart = 48) const;
+
+    /**
+        voicing() realised in an N-division octave: each 12-TET note is mapped to
+        the closest step, keeping its octave (MIDI 60 -> note 5 * N).
+    */
+    std::vector<int> voicingIn (int divisions, int bassOctaveStart = 48) const;
 
     /** Identity comparison (same key, same chord, same inversion, same label). */
     friend bool operator== (const RomanChord& a, const RomanChord& b) noexcept

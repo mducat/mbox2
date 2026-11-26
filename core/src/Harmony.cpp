@@ -322,12 +322,27 @@ std::vector<int> RomanChord::voicing (int bassOctaveStart) const
     return notes;
 }
 
+std::vector<int> RomanChord::voicingIn (int divisions, int bassOctaveStart) const
+{
+    auto notes = voicing (bassOctaveStart);
+    if (divisions == kDefaultDivisions)
+        return notes;
+
+    for (auto& n : notes)
+    {
+        const int octave = n >= 0 ? n / 12 : (n - 11) / 12;
+        n = octave * divisions + edo::fromSemitones (mod12 (n), divisions);
+    }
+    return notes;
+}
+
 // ---------------------------------------------------------------------------
 // Generation
 // ---------------------------------------------------------------------------
 
-std::vector<RomanChord> chordsInKey (const Key& key, const HarmonyOptions& options)
+std::vector<RomanChord> chordsInKey (const Key& requestedKey, const HarmonyOptions& options)
 {
+    const Key key { requestedKey.tonic.convertedTo (kDefaultDivisions), requestedKey.mode };
     Builder b (key, options);
     const auto deg = [&] (int d) { return key.degree (d); };
 

@@ -213,3 +213,16 @@ TEST_CASE ("Chords are grouped by function and options filter families")
     for (const auto& rc : chordsWithFunction (cMajor, HarmonicFunction::Dominant))
         CHECK (rc.function == HarmonicFunction::Dominant);
 }
+
+TEST_CASE ("Harmony in other tunings")
+{
+    // A 19-TET tonic is brought back to 12-TET for the analysis...
+    const auto list = chordsInKey (Key { PitchClass (11, 19), Mode::Major }); // G in 19-TET
+    REQUIRE_FALSE (list.empty());
+    CHECK (list.front().symbol() == "G");
+
+    // ...and chords can be realised in N-TET: C major triad in 19-TET = steps 0, 6, 11.
+    const auto I = *find (chordsInKey (cMajor), "I");
+    CHECK (I.voicingIn (19, 60) == std::vector<int> { 95, 101, 106 });
+    CHECK (I.voicingIn (12, 60) == I.voicing (60));
+}
