@@ -3,6 +3,7 @@ add_library(mbox_theory STATIC
     src/Scale.cpp
     src/Chord.cpp
     src/Tuning.cpp
+    src/TrichordSpace.cpp
 )
 add_library(mbox::theory ALIAS mbox_theory)
 
