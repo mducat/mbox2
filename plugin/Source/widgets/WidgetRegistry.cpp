@@ -1,6 +1,7 @@
 #include "WidgetRegistry.h"
 
 #include "CircleOfFifthsWidget.h"
+#include "CompositionWidget.h"
 #include "InstrumentWidget.h"
 #include "TonalMapWidget.h"
 #include "TriadSpaceWidget.h"
@@ -24,6 +25,7 @@ const std::vector<WidgetInfo>& allWidgets()
     static const std::vector<WidgetInfo> list {
         make<CircleOfFifthsWidget> ("circle-of-fifths", "Cercle des quintes"),
         make<TonalMapWidget>       ("tonal-map",        "Carte tonale"),
+        make<CompositionWidget>    ("composition", "Composition"),
         make<InstrumentWidget> ("instruments", "Piano / guitare"),
         make<TriadSpaceWidget>     ("triad-space",      "Espace des accords 3D"),
     };

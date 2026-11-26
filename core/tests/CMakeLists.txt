@@ -13,6 +13,8 @@ add_executable(mbox_theory_tests
     TuningTests.cpp
     MicrotonalTests.cpp
     HarmonyTests.cpp
+    SpellingTests.cpp
+    VoicingTests.cpp
     InstrumentTests.cpp
     TrichordSpaceTests.cpp
 )
