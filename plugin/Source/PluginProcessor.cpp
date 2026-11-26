@@ -65,6 +65,27 @@ void MusicBox2Processor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     spectrumEngine.process (buffer, getTotalNumInputChannels(), midi);
 
     // MIDI is passed through unchanged for now (it stays in `midi`).
+    // Notes switched on by hand in the widgets are added to the output.
+    uiNoteFifo.read (uiNoteFifo.getNumReady()).forEach ([&] (int index)
+    {
+        const int code = uiNotes[static_cast<std::size_t> (index)];
+        if (code >= 0)
+            midi.addEvent (juce::MidiMessage::noteOn (1, code, static_cast<juce::uint8> (100)), 0);
+        else
+            midi.addEvent (juce::MidiMessage::noteOff (1, -code - 1), 0);
+    });
+}
+
+void MusicBox2Processor::queueUiNote (int note, bool on) noexcept
+{
+    if (note < 0 || note > 127)
+        return;
+
+    // If the queue is full (audio not running) the event is dropped.
+    uiNoteFifo.write (1).forEach ([&] (int index)
+    {
+        uiNotes[static_cast<std::size_t> (index)] = static_cast<std::int16_t> (on ? note : -note - 1);
+    });
 }
 
 void MusicBox2Processor::applyPendingState()

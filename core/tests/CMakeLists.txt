@@ -13,6 +13,7 @@ add_executable(mbox_theory_tests
     TuningTests.cpp
     MicrotonalTests.cpp
     HarmonicsTests.cpp
+    InstrumentTests.cpp
 )
 target_link_libraries(mbox_theory_tests PRIVATE mbox::theory Catch2::Catch2WithMain)
 
