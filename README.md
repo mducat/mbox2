@@ -18,6 +18,8 @@ mbox2/
 │   │   ├── Tuning.h      # tempéraments : N-TET, tables de cents, fréquences, noms de notes
 │   │   ├── Scale.h       # gammes et modes, degrés, quantification
 │   │   └── Chord.h       # qualités d'accords, reconnaissance d'accords
+│   ├── include/mbox/analysis/
+│   │   └── Harmonics.h   # partiels, rugosité, fondamentale virtuelle, pics spectraux (en Hz)
 │   ├── include/mbox/instrument/
 │   │   ├── Keyboard.h    # disposition d'un clavier pour n'importe quel N-TET
 │   │   ├── Fretboard.h   # manche (accordages de cordes, frettes en N-TET)
@@ -31,6 +33,7 @@ mbox2/
 │       ├── PluginProcessor.*  # MIDI + état sauvegardé avec le projet
 │       ├── PluginEditor.*     # fenêtre : en-tête (tempérament, tonalité) + un onglet par widget
 │       ├── state/AppState.*   # état partagé par les widgets
+│       ├── spectrum/          # synthé additif, entrée sidechain et FFT du spectrogramme
 │       └── widgets/           # Widget.h (classe de base), WidgetRegistry.cpp (liste), widgets
 └── CMakeLists.txt
 ```
@@ -167,6 +170,33 @@ Pour utiliser une copie locale de JUCE au lieu du téléchargement :
 
 Astuce de développement : la version Standalone permet de tester l'interface
 avec un clavier MIDI sans lancer FL Studio (*Options → Audio/MIDI settings*).
+
+### Spectre harmonique (spectrogramme)
+
+L'onglet **Spectre harmonique** décompose le son en partiels :
+
+- à gauche, un spectrogramme défilant (fréquence en échelle logarithmique) ;
+- à droite, le spectre instantané, avec par-dessus les partiels théoriques des
+  notes actives (une couleur par note), les partiels communs à plusieurs notes
+  (cercles jaunes) et les pics détectés (points blancs) ;
+- en bas, la fondamentale virtuelle de l'accord, sa rugosité (dissonance
+  sensorielle, modèle de Plomp-Levelt / Sethares) et le nombre de partiels
+  communs.
+
+Le signal analysé se choisit en haut à gauche :
+
+- **Synthé interne** : un petit synthé additif joue les notes reçues en MIDI et
+  les notes activées à la main dans les widgets, dans le tempérament courant.
+  Il est muet par défaut ; cochez **Audible** pour l'entendre sur la sortie du
+  plugin. Le curseur **Partiels** règle son nombre d'harmoniques.
+- **Entrée sidechain** : le plugin a une entrée audio stéréo optionnelle
+  (désactivée par défaut). Dans FL Studio, routez la piste de mixage de la
+  source vers l'entrée du plugin (*wrapper → Processing → entrées*, ou envoi
+  « sidechain » vers la piste du plugin) pour analyser un vrai instrument.
+
+Tout est calculé en Hz à partir du `Tuning` courant : le widget fonctionne tel
+quel en 19, 31 ou 53-TET (on voit d'ailleurs les partiels communs augmenter
+quand le tempérament se rapproche de l'intonation juste).
 
 ## Feuille de route (idées)
 

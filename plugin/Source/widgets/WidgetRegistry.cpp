@@ -2,6 +2,7 @@
 
 #include "CircleOfFifthsWidget.h"
 #include "CompositionWidget.h"
+#include "HarmonicSpectrumWidget.h"
 #include "InstrumentWidget.h"
 #include "TonalMapWidget.h"
 #include "TriadSpaceWidget.h"
@@ -28,6 +29,7 @@ const std::vector<WidgetInfo>& allWidgets()
         make<CompositionWidget>    ("composition", "Composition"),
         make<InstrumentWidget> ("instruments", "Piano / guitare"),
         make<TriadSpaceWidget>     ("triad-space",      "Espace des accords 3D"),
+        make<HarmonicSpectrumWidget> ("harmonic-spectrum", "Spectre harmonique"),
     };
     return list;
 }

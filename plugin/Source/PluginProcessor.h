@@ -1,5 +1,7 @@
 #pragma once
 
+#include "spectrum/SpectrumEngine.h"
+#include "spectrum/SpectrumStateSync.h"
 #include "state/AppState.h"
 #include "state/ManualNoteOutput.h"
 
@@ -53,6 +55,8 @@ public:
     /** Shared UI state (tuning, key, progression, active notes). Message thread only. */
     mbox::AppState& getAppState() noexcept { return appState; }
 
+    /** Built-in synth + FFT feed of the harmonic decomposition (spectrogram) widget. */
+    mbox::spectrum::SpectrumEngine& getSpectrumEngine() noexcept { return spectrumEngine; }
     /** Plays the widgets' manual notes on the MIDI output (can be switched off). Message thread only. */
     mbox::ManualNoteOutput& getManualNoteOutput() noexcept { return manualNoteOutput; }
 
@@ -74,6 +78,8 @@ private:
 
     std::array<std::atomic<std::uint64_t>, 2> heldNotes {};
     mbox::AppState appState;
+    mbox::spectrum::SpectrumEngine spectrumEngine;
+    mbox::spectrum::SpectrumStateSync spectrumSync { appState, spectrumEngine };
 
     // UI -> audio thread note queue (lock-free, single producer / single consumer).
     juce::AbstractFifo uiNoteFifo { 512 };
