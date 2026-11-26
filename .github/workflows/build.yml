@@ -1,0 +1,41 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  core-tests:
+    name: Theory core tests (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Configure
+        run: cmake -S . -B build -DMBOX_BUILD_PLUGIN=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  windows:
+    name: Plugin + tests (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Configure
+        run: cmake -S . -B build -A x64
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: MusicBox2-VST3-Windows
+          path: build/plugin/MusicBox2_artefacts/Release/VST3/
+      - name: Upload Standalone
+        uses: actions/upload-artifact@v4
+        with:
+          name: MusicBox2-Standalone-Windows
+          path: build/plugin/MusicBox2_artefacts/Release/Standalone/
