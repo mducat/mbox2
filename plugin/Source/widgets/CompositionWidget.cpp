@@ -41,7 +41,11 @@ CompositionWidget::CompositionWidget (AppState& s) : Widget (s)
 
     voiceLeadingToggle.setTooltip (juce::String::fromUTF8 ("Réécrit les accords avec une conduite des voix douce au lieu des voicings de la progression"));
     voiceLeadingToggle.setColour (juce::ToggleButton::textColourId, colours::text);
-    voiceLeadingToggle.onClick = [this] { score.setVoiceLeading (voiceLeadingToggle.getToggleState()); };
+    voiceLeadingToggle.onClick = [this]
+    {
+        score.setVoiceLeading (voiceLeadingToggle.getToggleState());
+        updateVoicingControls();
+    };
     addAndMakeVisible (voiceLeadingToggle);
 
     tabToggle.setToggleState (true, juce::dontSendNotification);
@@ -88,6 +92,16 @@ CompositionWidget::CompositionWidget (AppState& s) : Widget (s)
     addAndMakeVisible (loopToggle);
     addAndMakeVisible (soundBox);
 
+    voicingLabel.setColour (juce::Label::textColourId, colours::textDim);
+    voicingLabel.setJustificationType (juce::Justification::centred);
+    addAndMakeVisible (voicingLabel);
+    previousVoicing.setTooltip (juce::String::fromUTF8 ("Voicing précédent de l'accord sélectionné (même basse)"));
+    nextVoicing.setTooltip (juce::String::fromUTF8 ("Voicing suivant de l'accord sélectionné (même basse)"));
+    previousVoicing.onClick = [this] { cycleVoicing (-1); };
+    nextVoicing.onClick = [this] { cycleVoicing (1); };
+    addAndMakeVisible (previousVoicing);
+    addAndMakeVisible (nextVoicing);
+
     score.onChordClicked = [this] (int index)
     {
         state.setSelectedChordIndex (index);
@@ -100,6 +114,7 @@ CompositionWidget::CompositionWidget (AppState& s) : Widget (s)
     addAndMakeVisible (viewport);
 
     refreshScore();
+    updateVoicingControls();
 }
 
 void CompositionWidget::appStateChanged (AppState&, int changes)
@@ -111,6 +126,64 @@ void CompositionWidget::appStateChanged (AppState&, int changes)
     }
     if ((changes & AppState::selectionChanged) != 0)
         score.setSelectedIndex (state.getSelectedChordIndex());
+    if ((changes & (AppState::progressionChanged | AppState::selectionChanged | AppState::tuningChanged)) != 0)
+        updateVoicingControls();
+}
+
+void CompositionWidget::updateVoicingControls()
+{
+    const auto& progression = state.getProgression();
+    const int index = state.getSelectedChordIndex();
+    const bool hasChord = juce::isPositiveAndBelow (index, static_cast<int> (progression.size()))
+                          && ! progression[static_cast<std::size_t> (index)].notes.empty();
+
+    juce::String text ("Voicing");
+    bool enabled = false;
+    if (hasChord && ! voiceLeadingToggle.getToggleState())
+    {
+        const auto& chord = progression[static_cast<std::size_t> (index)];
+        const auto voicings = theory::keyboardVoicings (chord.chord, chord.notes.front());
+        if (! voicings.empty())
+        {
+            const int current = theory::closestVoicingIndex (voicings, chord.notes);
+            text << " " << (voicings[static_cast<std::size_t> (current)] == chord.notes ? juce::String (current + 1) : juce::String ("-"))
+                 << "/" << static_cast<int> (voicings.size());
+            enabled = voicings.size() > 1 || voicings.front() != chord.notes;
+        }
+    }
+
+    voicingLabel.setText (text, juce::dontSendNotification);
+    voicingLabel.setTooltip (voiceLeadingToggle.getToggleState()
+                                 ? juce::String::fromUTF8 ("Désactive « Conduite des voix » pour choisir le voicing de chaque accord")
+                                 : (hasChord ? juce::String() : juce::String::fromUTF8 ("Sélectionne un accord sur la portée")));
+    previousVoicing.setEnabled (enabled);
+    nextVoicing.setEnabled (enabled);
+}
+
+void CompositionWidget::cycleVoicing (int delta)
+{
+    const auto& progression = state.getProgression();
+    const int index = state.getSelectedChordIndex();
+    if (! juce::isPositiveAndBelow (index, static_cast<int> (progression.size())))
+        return;
+
+    auto chord = progression[static_cast<std::size_t> (index)];
+    if (chord.notes.empty())
+        return;
+
+    const auto voicings = theory::keyboardVoicings (chord.chord, chord.notes.front());
+    if (voicings.empty())
+        return;
+
+    const int count = static_cast<int> (voicings.size());
+    const int current = theory::closestVoicingIndex (voicings, chord.notes);
+
+    // From a voicing that is not in the list (set elsewhere), the first step lands on the closest one.
+    const int next = voicings[static_cast<std::size_t> (current)] == chord.notes ? (current + delta + count) % count : current;
+
+    chord.notes = voicings[static_cast<std::size_t> (next)];
+    state.replaceChord (index, chord);
+    playNotes (*this, state, chord.notes, std::nullopt, 0.75f, 0.0, 2.0);
 }
 
 double CompositionWidget::secondsPerChord() const
@@ -254,6 +327,10 @@ void CompositionWidget::resized()
     transport.removeFromLeft (8);
     loopToggle.setBounds (transport.removeFromLeft (80));
     soundBox.setBounds (transport.removeFromLeft (140).reduced (0, 2));
+
+    nextVoicing.setBounds (transport.removeFromRight (28).reduced (0, 1));
+    voicingLabel.setBounds (transport.removeFromRight (100));
+    previousVoicing.setBounds (transport.removeFromRight (28).reduced (0, 1));
 
     area.removeFromTop (4);
     viewport.setBounds (area);

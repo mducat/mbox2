@@ -12,6 +12,10 @@ namespace mbox
     grand staff (chord symbols above, roman numerals below) with an optional
     guitar tablature. Clicking a bar selects that chord for the other widgets.
 
+    The arrows next to "Voicing" cycle the selected chord through alternative
+    voicings over the same bass (close, drop 2, drop 3, in several registers),
+    write it back to the progression and play it.
+
     "Play" plays the progression (one bar of 4 beats per chord at the chosen
     tempo) with the piano or guitar of the "Son" selector, in the real tuning
     (N-TET included), following along by selecting the chord being played.
@@ -30,6 +34,9 @@ private:
     void refreshScore();
     void updateScoreSize();
 
+    void cycleVoicing (int delta);
+    void updateVoicingControls();
+
     void startPlayback();
     void stopPlayback();
     void timerCallback() override;
@@ -45,6 +52,8 @@ private:
     juce::Label tempoLabel;
     juce::ToggleButton loopToggle { "Boucle" };
     SoundSelector soundBox;
+    juce::Label voicingLabel;
+    juce::TextButton previousVoicing { juce::String::fromUTF8 ("\xe2\x80\xb9") }, nextVoicing { juce::String::fromUTF8 ("\xe2\x80\xba") };
     bool playing = false;
     double playStartMs = 0.0, playChordSeconds = 2.0;
     int playStartIndex = 0, playCount = 0, playingIndex = -1;

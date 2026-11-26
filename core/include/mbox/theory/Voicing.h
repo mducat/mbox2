@@ -1,5 +1,6 @@
 #pragma once
 
+#include "mbox/theory/Chord.h"
 #include "mbox/theory/Spelling.h"
 
 #include <vector>
@@ -53,5 +54,23 @@ private:
     GrandStaffVoicing previous;
     bool hasPrevious = false;
 };
+
+/**
+    Alternative keyboard voicings of a chord over a fixed bass note, for the
+    user to cycle through. Notes are note numbers of an N-division tuning
+    (octave * N + step; MIDI notes in 12-TET), so this works in any N-TET.
+
+    The bass stays (it carries the inversion: i6/4 stays i6/4); the upper
+    voices take every chord tone (the bass tone is doubled) in:
+      - close position, each rotation (which tone on top),
+      - drop 2 and drop 3 (open positions), for each rotation,
+    in every register where the lowest upper note lies between G3 and C5 and
+    the top note stays below C6 (scaled to N). Results are sorted from low to
+    high (by average pitch) without duplicates.
+*/
+std::vector<std::vector<int>> keyboardVoicings (const Chord& chord, int bassNote);
+
+/** Index in `voicings` of the voicing closest to `notes` (same notes first, else least total movement), or -1 if empty. */
+int closestVoicingIndex (const std::vector<std::vector<int>>& voicings, const std::vector<int>& notes);
 
 } // namespace mbox::theory
