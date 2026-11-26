@@ -40,6 +40,9 @@ file(GLOB_RECURSE MBOX_PLUGIN_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/*.h)
 target_sources(MusicBox2 PRIVATE ${MBOX_PLUGIN_SOURCES})
 
+# Bravura music font (SMuFL, SIL Open Font License 1.1: Resources/fonts/Bravura-OFL.txt)
+juce_add_binary_data(MusicBox2Data SOURCES Resources/fonts/Bravura.otf)
+
 target_compile_definitions(MusicBox2 PUBLIC
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
@@ -49,8 +52,10 @@ target_compile_definitions(MusicBox2 PUBLIC
 target_link_libraries(MusicBox2
     PRIVATE
         mbox::theory
+        MusicBox2Data
         juce::juce_audio_utils
         juce::juce_dsp
+        juce::juce_opengl
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
