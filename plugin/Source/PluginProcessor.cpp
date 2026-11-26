@@ -2,20 +2,29 @@
 #include "PluginEditor.h"
 
 MusicBox2Processor::MusicBox2Processor()
-    : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true))
+    : AudioProcessor (BusesProperties()
+                          .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
+                          // Optional audio input, analysed by the spectrogram when its source is "sidechain".
+                          .withInput ("Sidechain", juce::AudioChannelSet::stereo(), false))
 {
 }
 
-void MusicBox2Processor::prepareToPlay (double, int)
+void MusicBox2Processor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    spectrumEngine.prepare (sampleRate, samplesPerBlock);
     heldNotes[0].store (0);
     heldNotes[1].store (0);
 }
 
 bool MusicBox2Processor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-    const auto out = layouts.getMainOutputChannelSet();
-    return out == juce::AudioChannelSet::stereo() || out == juce::AudioChannelSet::mono();
+    const auto monoOrStereo = [] (const juce::AudioChannelSet& set)
+    {
+        return set == juce::AudioChannelSet::stereo() || set == juce::AudioChannelSet::mono();
+    };
+
+    const auto in = layouts.getMainInputChannelSet();
+    return monoOrStereo (layouts.getMainOutputChannelSet()) && (in.isDisabled() || monoOrStereo (in));
 }
 
 void MusicBox2Processor::setNote (int note, bool on) noexcept
@@ -36,9 +45,6 @@ void MusicBox2Processor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
 {
     juce::ScopedNoDenormals noDenormals;
 
-    // No audio: this plugin only works on MIDI.
-    buffer.clear();
-
     for (const auto metadata : midi)
     {
         const auto msg = metadata.getMessage();
@@ -53,6 +59,10 @@ void MusicBox2Processor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
             heldNotes[1].store (0, std::memory_order_relaxed);
         }
     }
+
+    // Silent output, unless the spectrogram's internal synth is made audible.
+    // Reads the sidechain input (if enabled) before overwriting the buffer.
+    spectrumEngine.process (buffer, getTotalNumInputChannels(), midi);
 
     // MIDI is passed through unchanged for now (it stays in `midi`).
 }
@@ -85,6 +95,12 @@ void MusicBox2Processor::getStateInformation (juce::MemoryBlock& destData)
     editor.setProperty ("height", lastEditorHeight, nullptr);
     state.appendChild (editor, nullptr);
 
+    juce::ValueTree spectrum ("Spectrum");
+    spectrum.setProperty ("source", static_cast<int> (spectrumEngine.source.load()), nullptr);
+    spectrum.setProperty ("synthAudible", spectrumEngine.synthAudible.load(), nullptr);
+    spectrum.setProperty ("numPartials", spectrumEngine.getSynth().settings().numPartials.load(), nullptr);
+    state.appendChild (spectrum, nullptr);
+
     // AppState is a message-thread object; hosts call this from the message thread in practice.
     state.appendChild (appState.toValueTree(), nullptr);
 
@@ -107,6 +123,15 @@ void MusicBox2Processor::setStateInformation (const void* data, int sizeInBytes)
         lastTabIndex = editor.getProperty ("tab", 0);
         lastEditorWidth = editor.getProperty ("width", 900);
         lastEditorHeight = editor.getProperty ("height", 640);
+    }
+
+    if (const auto spectrum = state.getChildWithName ("Spectrum"); spectrum.isValid())
+    {
+        using mbox::spectrum::Source;
+        spectrumEngine.source.store (static_cast<int> (spectrum.getProperty ("source", 0)) == 1 ? Source::sidechain : Source::internalSynth);
+        spectrumEngine.synthAudible.store (static_cast<bool> (spectrum.getProperty ("synthAudible", false)));
+        spectrumEngine.getSynth().settings().numPartials.store (
+            juce::jlimit (1, mbox::spectrum::AdditiveSynth::kMaxPartials, static_cast<int> (spectrum.getProperty ("numPartials", 12))));
     }
 
     const auto app = state.getChildWithName ("AppState");
