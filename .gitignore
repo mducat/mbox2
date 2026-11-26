@@ -1,0 +1,16 @@
+# Build trees
+build*/
+out/
+cmake-build-*/
+
+# IDEs
+.vs/
+.vscode/
+.idea/
+*.user
+CMakeSettings.json
+CMakeUserPresets.json
+
+# OS
+.DS_Store
+Thumbs.db
