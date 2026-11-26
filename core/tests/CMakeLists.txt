@@ -14,6 +14,7 @@ add_executable(mbox_theory_tests
     MicrotonalTests.cpp
     SpellingTests.cpp
     VoicingTests.cpp
+    InstrumentTests.cpp
 )
 target_link_libraries(mbox_theory_tests PRIVATE mbox::theory Catch2::Catch2WithMain)
 
