@@ -5,3 +5,4 @@
 #include "mbox/theory/Tuning.h"
 #include "mbox/theory/Scale.h"
 #include "mbox/theory/Chord.h"
+#include "mbox/theory/Harmony.h"
