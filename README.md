@@ -14,15 +14,44 @@ plugin **VST3** / application **Standalone**, pensé pour **FL Studio**.
 mbox2/
 ├── core/                 # Bibliothèque C++20 pure (aucune dépendance JUCE ni UI)
 │   ├── include/mbox/theory/
-│   │   ├── PitchClass.h  # classes de hauteur, ensembles (masque 12 bits), cercle des quintes
+│   │   ├── PitchClass.h  # classes de hauteur sur N pas par octave, ensembles, cercle des quintes
+│   │   ├── Tuning.h      # tempéraments : N-TET, tables de cents, fréquences, noms de notes
 │   │   ├── Scale.h       # gammes et modes, degrés, quantification
 │   │   └── Chord.h       # qualités d'accords, reconnaissance d'accords
 │   ├── src/
 │   └── tests/            # tests unitaires (Catch2)
 ├── plugin/               # Plugin JUCE qui utilise mbox::theory
-│   └── Source/           # PluginProcessor (MIDI) + PluginEditor (UI provisoire)
+│   └── Source/
+│       ├── PluginProcessor.*  # MIDI + état sauvegardé avec le projet
+│       ├── PluginEditor.*     # fenêtre : en-tête (tempérament, tonalité) + un onglet par widget
+│       ├── state/AppState.*   # état partagé par les widgets
+│       └── widgets/           # Widget.h (classe de base), WidgetRegistry.cpp (liste), widgets
 └── CMakeLists.txt
 ```
+
+### Tempéraments (microtonal)
+
+Le cœur ne suppose plus 12 notes par octave. Une `PitchClass` est un pas
+`0..N-1` d'une octave divisée en N (`PitchClass (6, 19)` = mi en 19-TET) ; N
+vaut 12 par défaut, donc tout le code 12-TET existant reste valide. Les gammes
+et accords sont définis en demi-tons et réalisés au pas le plus proche dans
+n'importe quel N (`Scale (PitchClass (0, 31), scales::major)`), ou directement
+dans leur propre N (`ChordQuality { "Neutral", "n", kNeutral, 24 }`).
+`Tuning` dit comment sonnent les pas : division égale (`Tuning::equal (19)`) ou
+table de cents (intonation juste, tempéraments historiques...). Les numéros de
+note suivent la convention MIDI (`octave * N + pas`, do central = `5 * N`, soit
+60 en 12-TET).
+
+### Ajouter un widget
+
+1. Créer `plugin/Source/widgets/MonWidget.{h,cpp}` dérivant de `mbox::Widget`
+   (qui donne accès à `state`, l'`AppState` partagé, et repeint à chaque
+   changement). Les nouveaux `.cpp` sont compilés automatiquement.
+2. Ajouter une ligne dans la liste de `WidgetRegistry.cpp`.
+
+`AppState` contient le tempérament courant, la tonalité, la progression
+d'accords (avec un accord sélectionné) et les notes actives (MIDI + notes
+activées à la main), et prévient ses `Listener` avec un masque de changements.
 
 Toute la logique musicale vit dans `core/` (cible CMake `mbox::theory`) : elle se
 teste sans DAW et pourra être réutilisée ailleurs. Le plugin n'est qu'une

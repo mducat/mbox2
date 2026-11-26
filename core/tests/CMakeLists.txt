@@ -10,6 +10,8 @@ add_executable(mbox_theory_tests
     PitchClassTests.cpp
     ScaleTests.cpp
     ChordTests.cpp
+    TuningTests.cpp
+    MicrotonalTests.cpp
 )
 target_link_libraries(mbox_theory_tests PRIVATE mbox::theory Catch2::Catch2WithMain)
 

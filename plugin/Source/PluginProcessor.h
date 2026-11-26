@@ -1,5 +1,7 @@
 #pragma once
 
+#include "state/AppState.h"
+
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <array>
@@ -9,6 +11,7 @@
     MIDI-oriented processor. For now it passes MIDI through unchanged and keeps
     track of the currently held notes so the editor can display them (and the
     chord they form). Theory logic lives in the JUCE-free mbox::theory library.
+    It also owns the AppState shared by the editor's widgets, saved with the project.
 */
 class MusicBox2Processor final : public juce::AudioProcessor
 {
@@ -46,10 +49,23 @@ public:
         return { heldNotes[0].load (std::memory_order_relaxed), heldNotes[1].load (std::memory_order_relaxed) };
     }
 
+    /** Shared UI state (tuning, key, progression, active notes). Message thread only. */
+    mbox::AppState& getAppState() noexcept { return appState; }
+
+    /** Applies a state restored off the message thread, if any. Message thread only. */
+    void applyPendingState();
+
+    // Editor layout, remembered while the plugin instance lives (and saved).
+    int lastTabIndex = 0;
+    int lastEditorWidth = 900, lastEditorHeight = 640;
+
 private:
     void setNote (int note, bool on) noexcept;
 
     std::array<std::atomic<std::uint64_t>, 2> heldNotes {};
+    mbox::AppState appState;
+    juce::SpinLock pendingStateLock;
+    juce::ValueTree pendingState;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MusicBox2Processor)
 };
