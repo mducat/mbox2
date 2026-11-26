@@ -50,6 +50,7 @@ target_link_libraries(MusicBox2
     PRIVATE
         mbox::theory
         juce::juce_audio_utils
+        juce::juce_opengl
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
