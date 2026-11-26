@@ -18,6 +18,10 @@ mbox2/
 │   │   ├── Tuning.h      # tempéraments : N-TET, tables de cents, fréquences, noms de notes
 │   │   ├── Scale.h       # gammes et modes, degrés, quantification
 │   │   └── Chord.h       # qualités d'accords, reconnaissance d'accords
+│   ├── include/mbox/instrument/
+│   │   ├── Keyboard.h    # disposition d'un clavier pour n'importe quel N-TET
+│   │   ├── Fretboard.h   # manche (accordages de cordes, frettes en N-TET)
+│   │   └── GuitarVoicing.h # recherche de doigtés jouables d'un accord
 │   ├── include/mbox/geometry/
 │   │   └── TrichordSpace.h  # espace des accords de 3 notes (orbifold de Tymoczko), conduites de voix
 │   ├── src/
@@ -43,6 +47,17 @@ dans leur propre N (`ChordQuality { "Neutral", "n", kNeutral, 24 }`).
 table de cents (intonation juste, tempéraments historiques...). Les numéros de
 note suivent la convention MIDI (`octave * N + pas`, do central = `5 * N`, soit
 60 en 12-TET).
+
+### Widget « Piano / guitare »
+
+Affiche les notes actives sur un clavier et un manche, nomme l'accord et montre
+où ses notes se trouvent ailleurs sur le manche. Un clic sur une touche ou une
+case active/désactive une note (une case par corde, comme sur une vraie
+guitare). Les boutons `<` `>` parcourent les doigtés jouables de l'accord
+courant (ou de l'accord sélectionné dans la progression si rien ne joue). Les
+notes activées à la main sont jouées sur la sortie MIDI (case « Sortie MIDI »,
+12-TET seulement pour l'instant). Les deux instruments se redessinent pour le
+tempérament choisi : N touches et N frettes par octave.
 
 ### Espace des accords de 3 notes (onglet « Espace des accords 3D »)
 
