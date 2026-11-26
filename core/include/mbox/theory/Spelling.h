@@ -2,6 +2,7 @@
 
 #include "mbox/theory/Chord.h"
 #include "mbox/theory/PitchClass.h"
+#include "mbox/theory/Scale.h"
 
 #include <string>
 #include <vector>
@@ -95,14 +96,32 @@ private:
     int fifthsCount = 0;
 };
 
-/** A tonal key: spelled tonic + mode (major / minor). */
+/**
+    A tonal key: spelled tonic + mode. The mode is stored as the distance, in
+    fifths, from the tonic to the signature: 0 = major (Ionian), -3 = minor
+    (Aeolian), -2 = Dorian, -4 = Phrygian, +1 = Lydian, -1 = Mixolydian,
+    -5 = Locrian.
+*/
 struct Key
 {
     SpelledPitchClass tonic;
-    bool minor = false;
+    int modeFifths = 0;
+
+    bool isMinor() const noexcept { return modeFifths == -3; }
 
     /** Key with the simplest spelling of `tonic` (fewest accidentals, ties go to flats: Gb major, Eb minor). */
     static Key fromPitchClass (PitchClass tonic, bool minor);
+
+    /** Same for any mode offset (see modeFifths). */
+    static Key withMode (PitchClass tonic, int modeFifths);
+
+    /**
+        Key for a 12-TET scale: the diatonic modes get their own signature
+        (D Dorian = no accidentals); other scales are read as major, or as minor
+        when they have a minor third and no major third (harmonic minor, minor
+        pentatonic, blues...).
+    */
+    static Key fromScale (const Scale& scale);
 
     KeySignature signature() const noexcept;
 

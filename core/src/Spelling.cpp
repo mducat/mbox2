@@ -91,12 +91,17 @@ std::vector<Letter> KeySignature::accidentalLetters() const
 
 Key Key::fromPitchClass (PitchClass tonic, bool minor)
 {
-    Key best { SpelledPitchClass::withLetter (Letter::C, tonic), minor };
+    return withMode (tonic, minor ? -3 : 0);
+}
+
+Key Key::withMode (PitchClass tonic, int modeFifths)
+{
+    Key best { SpelledPitchClass::withLetter (Letter::C, tonic), modeFifths };
     int bestFifths = 1000;
 
     for (int i = 0; i < kNumLetters; ++i)
     {
-        const Key candidate { SpelledPitchClass::withLetter (letterAt (i), tonic), minor };
+        const Key candidate { SpelledPitchClass::withLetter (letterAt (i), tonic), modeFifths };
         if (std::abs (candidate.tonic.alter) > 1)
             continue;
 
@@ -112,8 +117,25 @@ Key Key::fromPitchClass (PitchClass tonic, bool minor)
 
 KeySignature Key::signature() const noexcept
 {
-    // A minor key shares the signature of its relative major, three fifths higher.
-    return KeySignature (tonic.lineOfFifths() - (minor ? 3 : 0));
+    // E.g. a minor key shares the signature of its relative major, three fifths higher.
+    return KeySignature (tonic.lineOfFifths() + modeFifths);
+}
+
+Key Key::fromScale (const Scale& scale)
+{
+    const auto tonic = scale.tonic().convertedTo (kDefaultDivisions);
+    const auto pcs = Scale (tonic, scale.type()).pitchClasses();
+
+    // Diatonic modes: find the major scale with the same notes.
+    for (int offset = -5; offset <= 1; ++offset)
+    {
+        const auto majorTonic = tonic.transposed (7 * offset);
+        if (Scale (majorTonic, scales::major).pitchClasses() == pcs)
+            return withMode (tonic, offset);
+    }
+
+    const bool minorThird = pcs.contains (tonic.transposed (3)) && ! pcs.contains (tonic.transposed (4));
+    return fromPitchClass (tonic, minorThird);
 }
 
 SpelledPitchClass Key::spellDegree (PitchClass pc) const noexcept
@@ -138,6 +160,14 @@ int genericInterval (const ChordQuality& quality, int intervalIndex) noexcept
         const auto& iv = quality.intervals;
         if (std::find (iv.begin(), iv.end(), 6) != iv.end())
             generic = 6;
+    }
+
+    // Augmented sixth chords (It+6, Fr+6, Ger+6, rooted on b6): 10 semitones is an
+    // augmented sixth (Ab-F#), and the French tritone an augmented fourth (Ab-D).
+    if (quality.symbol.find ("+6") != std::string_view::npos)
+    {
+        if (mod12 (semis) == 10) generic = 5;
+        if (mod12 (semis) == 6)  generic = 3;
     }
     return octaves * kNumLetters + generic;
 }
