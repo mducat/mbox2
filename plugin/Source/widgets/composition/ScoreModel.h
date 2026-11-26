@@ -27,7 +27,7 @@ struct ScoreChord
 
 struct ScoreInput
 {
-    theory::Key key = theory::Key::fromPitchClass (theory::PitchClass (0), false);
+    theory::SpelledKey key = theory::SpelledKey::fromPitchClass (theory::PitchClass (0), false);
     std::vector<ScoreChord> chords;
     int divisions = 12;        // steps per octave of the current tuning (frets of the tablature)
     bool approximated = false; // notation rounded to 12-TET

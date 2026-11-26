@@ -71,7 +71,7 @@ namespace
     }
 
     // Spells a written note: as a chord tone when it is one, else by its degree in the key.
-    theory::SpelledNote spellNote (int midi, const std::vector<theory::SpelledPitchClass>& tones, const theory::Key& key)
+    theory::SpelledNote spellNote (int midi, const std::vector<theory::SpelledPitchClass>& tones, const theory::SpelledKey& key)
     {
         const auto pc = theory::PitchClass::fromMidi (midi);
         for (const auto& t : tones)
