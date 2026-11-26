@@ -8,7 +8,7 @@ using namespace mbox::theory;
 
 TEST_CASE ("KeyboardVoicer puts the requested inversion in the bass")
 {
-    const auto C = Key::fromPitchClass (PitchClass (0), false);
+    const auto C = SpelledKey::fromPitchClass (PitchClass (0), false);
     KeyboardVoicer voicer;
 
     const auto first = voicer.next (spellChord (Chord (PitchClass (0), chords::major), C), 1);
@@ -26,7 +26,7 @@ TEST_CASE ("KeyboardVoicer puts the requested inversion in the bass")
 
 TEST_CASE ("KeyboardVoicer keeps common tones (C -> F -> G7 -> C)")
 {
-    const auto C = Key::fromPitchClass (PitchClass (0), false);
+    const auto C = SpelledKey::fromPitchClass (PitchClass (0), false);
     KeyboardVoicer voicer;
 
     auto upperOf = [&] (int root, const ChordQuality& q, int inv = 0)
@@ -56,7 +56,7 @@ TEST_CASE ("KeyboardVoicer keeps common tones (C -> F -> G7 -> C)")
 
 TEST_CASE ("Voicing keeps the chord spelling")
 {
-    const auto cm = Key::fromPitchClass (PitchClass (0), true);
+    const auto cm = SpelledKey::fromPitchClass (PitchClass (0), true);
     KeyboardVoicer voicer;
     const auto v = voicer.next (spellChord (Chord (PitchClass (11), chords::diminished7), cm), 0);
     CHECK (v.bass.pitch.name() == "B");

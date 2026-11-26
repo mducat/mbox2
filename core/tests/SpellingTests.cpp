@@ -14,9 +14,9 @@ namespace
         return s;
     }
 
-    Key key (const char* tonic, bool minor)
+    SpelledKey key (const char* tonic, bool minor)
     {
-        return Key::fromPitchClass (*PitchClass::fromName (tonic), minor);
+        return SpelledKey::fromPitchClass (*PitchClass::fromName (tonic), minor);
     }
 } // namespace
 
@@ -87,14 +87,14 @@ TEST_CASE ("Chord spelling follows the key and stacks thirds")
 
 TEST_CASE ("Keys from scales and modes")
 {
-    CHECK (Key::fromScale (Scale (PitchClass (2), scales::dorian)).signature().fifths() == 0);
-    CHECK (Key::fromScale (Scale (PitchClass (4), scales::phrygian)).signature().fifths() == 0);
-    CHECK (Key::fromScale (Scale (PitchClass (5), scales::lydian)).signature().fifths() == 0);
-    CHECK (Key::fromScale (Scale (PitchClass (7), scales::mixolydian)).signature().fifths() == 0);
-    CHECK (Key::fromScale (Scale (PitchClass (9), scales::naturalMinor)).isMinor());
-    CHECK (Key::fromScale (Scale (PitchClass (0), scales::harmonicMinor)).signature().fifths() == -3);
-    CHECK (Key::fromScale (Scale (PitchClass (7), scales::majorPentatonic)).signature().fifths() == 1);
-    CHECK (Key::fromScale (Scale (PitchClass (6), scales::major)).tonic.name() == "Gb");
+    CHECK (SpelledKey::fromScale (Scale (PitchClass (2), scales::dorian)).signature().fifths() == 0);
+    CHECK (SpelledKey::fromScale (Scale (PitchClass (4), scales::phrygian)).signature().fifths() == 0);
+    CHECK (SpelledKey::fromScale (Scale (PitchClass (5), scales::lydian)).signature().fifths() == 0);
+    CHECK (SpelledKey::fromScale (Scale (PitchClass (7), scales::mixolydian)).signature().fifths() == 0);
+    CHECK (SpelledKey::fromScale (Scale (PitchClass (9), scales::naturalMinor)).isMinor());
+    CHECK (SpelledKey::fromScale (Scale (PitchClass (0), scales::harmonicMinor)).signature().fifths() == -3);
+    CHECK (SpelledKey::fromScale (Scale (PitchClass (7), scales::majorPentatonic)).signature().fifths() == 1);
+    CHECK (SpelledKey::fromScale (Scale (PitchClass (6), scales::major)).tonic.name() == "Gb");
 }
 
 TEST_CASE ("Augmented sixth chords spell the augmented sixth")
@@ -103,7 +103,7 @@ TEST_CASE ("Augmented sixth chords spell the augmented sixth")
     static constexpr int fr[]  { 0, 4, 6, 10 };
     const ChordQuality german { "German sixth", "Ger+6", ger };
     const ChordQuality french { "French sixth", "Fr+6", fr };
-    const auto C = Key::fromPitchClass (PitchClass (0), false);
+    const auto C = SpelledKey::fromPitchClass (PitchClass (0), false);
     CHECK (names (spellChord (Chord (PitchClass (8), german), C)) == "Ab C Eb F#");
     CHECK (names (spellChord (Chord (PitchClass (8), french), C)) == "Ab C D F#");
 }

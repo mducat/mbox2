@@ -102,7 +102,7 @@ private:
     (Aeolian), -2 = Dorian, -4 = Phrygian, +1 = Lydian, -1 = Mixolydian,
     -5 = Locrian.
 */
-struct Key
+struct SpelledKey
 {
     SpelledPitchClass tonic;
     int modeFifths = 0;
@@ -110,10 +110,10 @@ struct Key
     bool isMinor() const noexcept { return modeFifths == -3; }
 
     /** Key with the simplest spelling of `tonic` (fewest accidentals, ties go to flats: Gb major, Eb minor). */
-    static Key fromPitchClass (PitchClass tonic, bool minor);
+    static SpelledKey fromPitchClass (PitchClass tonic, bool minor);
 
     /** Same for any mode offset (see modeFifths). */
-    static Key withMode (PitchClass tonic, int modeFifths);
+    static SpelledKey withMode (PitchClass tonic, int modeFifths);
 
     /**
         Key for a 12-TET scale: the diatonic modes get their own signature
@@ -121,7 +121,7 @@ struct Key
         when they have a minor third and no major third (harmonic minor, minor
         pentatonic, blues...).
     */
-    static Key fromScale (const Scale& scale);
+    static SpelledKey fromScale (const Scale& scale);
 
     KeySignature signature() const noexcept;
 
@@ -137,7 +137,7 @@ struct Key
 int genericInterval (const ChordQuality& quality, int intervalIndex) noexcept;
 
 /** Spells every chord tone (in quality interval order, root first) by stacking letters on the spelled root. */
-std::vector<SpelledPitchClass> spellChord (const Chord& chord, const Key& key);
+std::vector<SpelledPitchClass> spellChord (const Chord& chord, const SpelledKey& key);
 
 /** Same with an explicitly spelled root. */
 std::vector<SpelledPitchClass> spellChord (const Chord& chord, SpelledPitchClass root);

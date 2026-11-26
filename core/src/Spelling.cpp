@@ -89,19 +89,19 @@ std::vector<Letter> KeySignature::accidentalLetters() const
 
 // ---------------------------------------------------------------------------
 
-Key Key::fromPitchClass (PitchClass tonic, bool minor)
+SpelledKey SpelledKey::fromPitchClass (PitchClass tonic, bool minor)
 {
     return withMode (tonic, minor ? -3 : 0);
 }
 
-Key Key::withMode (PitchClass tonic, int modeFifths)
+SpelledKey SpelledKey::withMode (PitchClass tonic, int modeFifths)
 {
-    Key best { SpelledPitchClass::withLetter (Letter::C, tonic), modeFifths };
+    SpelledKey best { SpelledPitchClass::withLetter (Letter::C, tonic), modeFifths };
     int bestFifths = 1000;
 
     for (int i = 0; i < kNumLetters; ++i)
     {
-        const Key candidate { SpelledPitchClass::withLetter (letterAt (i), tonic), modeFifths };
+        const SpelledKey candidate { SpelledPitchClass::withLetter (letterAt (i), tonic), modeFifths };
         if (std::abs (candidate.tonic.alter) > 1)
             continue;
 
@@ -115,13 +115,13 @@ Key Key::withMode (PitchClass tonic, int modeFifths)
     return best;
 }
 
-KeySignature Key::signature() const noexcept
+KeySignature SpelledKey::signature() const noexcept
 {
     // E.g. a minor key shares the signature of its relative major, three fifths higher.
     return KeySignature (tonic.lineOfFifths() + modeFifths);
 }
 
-Key Key::fromScale (const Scale& scale)
+SpelledKey SpelledKey::fromScale (const Scale& scale)
 {
     const auto tonic = scale.tonic().convertedTo (kDefaultDivisions);
     const auto pcs = Scale (tonic, scale.type()).pitchClasses();
@@ -138,7 +138,7 @@ Key Key::fromScale (const Scale& scale)
     return fromPitchClass (tonic, minorThird);
 }
 
-SpelledPitchClass Key::spellDegree (PitchClass pc) const noexcept
+SpelledPitchClass SpelledKey::spellDegree (PitchClass pc) const noexcept
 {
     const int semis = tonic.pitchClass().intervalTo (pc);
     const auto degree = kDegreeOfSemitone[static_cast<std::size_t> (semis)];
@@ -186,7 +186,7 @@ std::vector<SpelledPitchClass> spellChord (const Chord& chord, SpelledPitchClass
     return result;
 }
 
-std::vector<SpelledPitchClass> spellChord (const Chord& chord, const Key& key)
+std::vector<SpelledPitchClass> spellChord (const Chord& chord, const SpelledKey& key)
 {
     return spellChord (chord, key.spellDegree (chord.root()));
 }

@@ -90,7 +90,7 @@ void CompositionWidget::refreshScore()
     composition::ScoreInput in;
     in.divisions = n;
     in.approximated = n != theory::kDefaultDivisions;
-    in.key = theory::Key::fromScale (state.getKey());
+    in.key = theory::SpelledKey::fromScale (state.getKey());
 
     for (const auto& pc : state.getProgression())
     {
