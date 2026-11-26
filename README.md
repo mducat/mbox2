@@ -22,6 +22,8 @@ mbox2/
 │   │   ├── Keyboard.h    # disposition d'un clavier pour n'importe quel N-TET
 │   │   ├── Fretboard.h   # manche (accordages de cordes, frettes en N-TET)
 │   │   └── GuitarVoicing.h # recherche de doigtés jouables d'un accord
+│   ├── include/mbox/geometry/
+│   │   └── TrichordSpace.h  # espace des accords de 3 notes (orbifold de Tymoczko), conduites de voix
 │   ├── src/
 │   └── tests/            # tests unitaires (Catch2)
 ├── plugin/               # Plugin JUCE qui utilise mbox::theory
@@ -56,6 +58,27 @@ courant (ou de l'accord sélectionné dans la progression si rien ne joue). Les
 notes activées à la main sont jouées sur la sortie MIDI (case « Sortie MIDI »,
 12-TET seulement pour l'instant). Les deux instruments se redessinent pour le
 tempérament choisi : N touches et N frettes par octave.
+
+### Espace des accords de 3 notes (onglet « Espace des accords 3D »)
+
+Chaque accord de 3 notes (multiensemble de classes de hauteur du N-TET courant,
+364 en 12-TET) est un point de l'orbifold de Tymoczko (*The Geometry of Musical
+Chords*, Science 2006), un prisme à section triangulaire :
+
+- l'axe vertical est la transposition (la somme des notes) ; le haut est
+  recollé au bas après un tiers de tour ;
+- les accords augmentés (équidistants) sont sur l'axe central, les majeurs et
+  mineurs tournent autour, les accords à note doublée sont sur les faces et les
+  unissons sur les arêtes ;
+- la distance entre deux points est la taille de la conduite de voix qui les
+  relie ; les traits fins joignent les accords à un pas de distance.
+
+Les notes actives allument tous les accords de 3 notes qu'elles contiennent
+(un accord de septième en allume quatre), la progression est tracée en orange,
+et un clic sur un point joue cet accord. Navigation : glisser pour tourner,
+Maj/clic droit pour déplacer, molette pour zoomer, double-clic pour recentrer.
+Toute la géométrie (`mbox::geometry`) est dans `core/` et testée ; elle accepte
+des hauteurs fractionnaires, donc n'importe quel tempérament.
 
 ### Ajouter un widget
 

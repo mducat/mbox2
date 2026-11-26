@@ -7,6 +7,7 @@ add_library(mbox_theory STATIC
     src/instrument/Keyboard.cpp
     src/instrument/Fretboard.cpp
     src/instrument/GuitarVoicing.cpp
+    src/TrichordSpace.cpp
 )
 add_library(mbox::theory ALIAS mbox_theory)
 

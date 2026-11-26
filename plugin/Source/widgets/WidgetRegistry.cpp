@@ -3,6 +3,7 @@
 #include "CircleOfFifthsWidget.h"
 #include "InstrumentWidget.h"
 #include "TonalMapWidget.h"
+#include "TriadSpaceWidget.h"
 // One #include per widget, keep alphabetical to ease merges.
 
 namespace mbox
@@ -24,6 +25,7 @@ const std::vector<WidgetInfo>& allWidgets()
         make<CircleOfFifthsWidget> ("circle-of-fifths", "Cercle des quintes"),
         make<TonalMapWidget>       ("tonal-map",        "Carte tonale"),
         make<InstrumentWidget> ("instruments", "Piano / guitare"),
+        make<TriadSpaceWidget>     ("triad-space",      "Espace des accords 3D"),
     };
     return list;
 }
