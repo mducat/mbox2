@@ -11,12 +11,20 @@
 namespace mbox::theory
 {
 
-/** A chord quality, defined by its intervals above the root. */
+/**
+    A chord quality, defined by its intervals above the root, in steps of a
+    `divisions`-step octave (semitones for the built-in qualities). Like
+    ScaleType, a quality works in any division count (closest steps).
+*/
 struct ChordQuality
 {
     std::string_view name;    // "Minor seventh"
     std::string_view symbol;  // "m7"  (appended to the root name: "Am7")
     std::span<const int> intervals;
+    int divisions = kDefaultDivisions;
+
+    /** The intervals realised in an N-division octave. */
+    std::vector<int> stepsIn (int targetDivisions) const;
 };
 
 namespace chords
@@ -42,7 +50,10 @@ namespace chords
     std::span<const ChordQuality* const> all();
 } // namespace chords
 
-/** A concrete chord: root + quality (e.g. A minor seventh). */
+/**
+    A concrete chord: root + quality (e.g. A minor seventh). The chord lives in
+    the root's division count.
+*/
 class Chord
 {
 public:
@@ -51,10 +62,15 @@ public:
     PitchClass root() const noexcept { return chordRoot; }
     const ChordQuality& quality() const noexcept { return *chordQuality; }
 
+    int divisions() const noexcept { return chordRoot.divisions(); }
+
+    /** Intervals above the root, in steps of divisions(). */
+    std::vector<int> steps() const { return chordQuality->stepsIn (divisions()); }
+
     PitchClassSet pitchClasses() const noexcept;
 
-    /** MIDI notes of the chord in root position, starting at rootMidiNote's octave. */
-    std::vector<int> voicing (int rootMidiNote) const;
+    /** Notes of the chord in root position from rootNote (a MIDI note in 12-TET, a note number in N-TET). */
+    std::vector<int> voicing (int rootNote) const;
 
     /** Short symbol, e.g. "C", "F#m7", "Bbdim". */
     std::string symbol (bool preferFlats = false) const;
@@ -70,7 +86,7 @@ private:
 };
 
 /**
-    Finds every chord whose pitch-class set is exactly `notes`.
+    Finds every chord whose pitch-class set is exactly `notes`, in the set's division count.
     If `bass` is given, the chord rooted on the bass comes first (root-position reading).
     Symmetric chords (aug, dim7) return several candidates.
 */

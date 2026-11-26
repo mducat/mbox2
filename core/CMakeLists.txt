@@ -2,6 +2,7 @@ add_library(mbox_theory STATIC
     src/PitchClass.cpp
     src/Scale.cpp
     src/Chord.cpp
+    src/Tuning.cpp
 )
 add_library(mbox::theory ALIAS mbox_theory)
 

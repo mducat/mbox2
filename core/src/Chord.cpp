@@ -58,20 +58,28 @@ namespace chords
     }
 } // namespace chords
 
+std::vector<int> ChordQuality::stepsIn (int targetDivisions) const
+{
+    std::vector<int> out;
+    out.reserve (intervals.size());
+    for (const int i : intervals)
+        out.push_back (edo::convert (i, divisions, targetDivisions));
+    return out;
+}
+
 PitchClassSet Chord::pitchClasses() const noexcept
 {
-    PitchClassSet s;
+    auto s = PitchClassSet::withDivisions (divisions());
     for (const int i : chordQuality->intervals)
-        s.insert (chordRoot.transposed (i));
+        s.insert (chordRoot.transposed (edo::convert (i, chordQuality->divisions, divisions())));
     return s;
 }
 
-std::vector<int> Chord::voicing (int rootMidiNote) const
+std::vector<int> Chord::voicing (int rootNote) const
 {
-    std::vector<int> notes;
-    notes.reserve (chordQuality->intervals.size());
-    for (const int i : chordQuality->intervals)
-        notes.push_back (rootMidiNote + i);
+    auto notes = steps();
+    for (auto& n : notes)
+        n += rootNote;
     return notes;
 }
 
@@ -86,14 +94,15 @@ std::vector<Chord> identifyChords (PitchClassSet notes, std::optional<PitchClass
     if (notes.empty())
         return result;
 
+    const int d = notes.divisions();
     for (const auto* quality : chords::all())
-        for (int r = 0; r < kNumPitchClasses; ++r)
-            if (Chord c (PitchClass (r), *quality); c.pitchClasses() == notes)
+        for (int r = 0; r < d; ++r)
+            if (Chord c (PitchClass (r, d), *quality); c.pitchClasses() == notes)
                 result.push_back (c);
 
     if (bass)
         std::stable_partition (result.begin(), result.end(),
-                               [b = *bass] (const Chord& c) { return c.root() == b; });
+                               [b = bass->convertedTo (d)] (const Chord& c) { return c.root() == b; });
 
     return result;
 }

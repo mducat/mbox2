@@ -57,8 +57,20 @@ void MusicBox2Processor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     // MIDI is passed through unchanged for now (it stays in `midi`).
 }
 
+void MusicBox2Processor::applyPendingState()
+{
+    juce::ValueTree app;
+    {
+        const juce::SpinLock::ScopedLockType lock (pendingStateLock);
+        std::swap (app, pendingState);
+    }
+    if (app.isValid())
+        appState.restoreFromValueTree (app);
+}
+
 juce::AudioProcessorEditor* MusicBox2Processor::createEditor()
 {
+    applyPendingState();
     return new MusicBox2Editor (*this);
 }
 
@@ -67,14 +79,48 @@ void MusicBox2Processor::getStateInformation (juce::MemoryBlock& destData)
     juce::ValueTree state ("MusicBox2State");
     state.setProperty ("version", JucePlugin_VersionString, nullptr);
 
+    juce::ValueTree editor ("Editor");
+    editor.setProperty ("tab", lastTabIndex, nullptr);
+    editor.setProperty ("width", lastEditorWidth, nullptr);
+    editor.setProperty ("height", lastEditorHeight, nullptr);
+    state.appendChild (editor, nullptr);
+
+    // AppState is a message-thread object; hosts call this from the message thread in practice.
+    state.appendChild (appState.toValueTree(), nullptr);
+
     if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
 }
 
 void MusicBox2Processor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // Nothing to restore yet; parameters will be added with the first features.
-    juce::ignoreUnused (getXmlFromBinary (data, sizeInBytes));
+    const auto xml = getXmlFromBinary (data, sizeInBytes);
+    if (xml == nullptr)
+        return;
+
+    const auto state = juce::ValueTree::fromXml (*xml);
+    if (! state.hasType ("MusicBox2State"))
+        return;
+
+    if (const auto editor = state.getChildWithName ("Editor"); editor.isValid())
+    {
+        lastTabIndex = editor.getProperty ("tab", 0);
+        lastEditorWidth = editor.getProperty ("width", 900);
+        lastEditorHeight = editor.getProperty ("height", 640);
+    }
+
+    const auto app = state.getChildWithName ("AppState");
+    if (juce::MessageManager::existsAndIsCurrentThread())
+    {
+        appState.restoreFromValueTree (app);
+    }
+    else
+    {
+        // Rare: some hosts restore state off the message thread. Keep it for
+        // the message thread (applied by the editor / applyPendingState()).
+        const juce::SpinLock::ScopedLockType lock (pendingStateLock);
+        pendingState = app.createCopy();
+    }
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

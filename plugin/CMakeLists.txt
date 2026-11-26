@@ -32,9 +32,13 @@ juce_add_plugin(MusicBox2
     VST3_CATEGORIES             Instrument Tools
     COPY_PLUGIN_AFTER_BUILD     FALSE)
 
-target_sources(MusicBox2 PRIVATE
-    Source/PluginProcessor.cpp
-    Source/PluginEditor.cpp)
+# Every .cpp under Source/ (widgets included) is compiled: adding a widget
+# needs no CMake change. Re-run CMake after adding a file if your generator
+# does not pick it up (CONFIGURE_DEPENDS handles it for Ninja / VS).
+file(GLOB_RECURSE MBOX_PLUGIN_SOURCES CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/*.h)
+target_sources(MusicBox2 PRIVATE ${MBOX_PLUGIN_SOURCES})
 
 target_compile_definitions(MusicBox2 PUBLIC
     JUCE_WEB_BROWSER=0

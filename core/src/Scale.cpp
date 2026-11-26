@@ -49,33 +49,44 @@ namespace scales
     }
 } // namespace scales
 
+std::vector<int> ScaleType::stepsIn (int targetDivisions) const
+{
+    std::vector<int> out;
+    out.reserve (intervals.size());
+    for (const int i : intervals)
+        out.push_back (edo::convert (i, divisions, targetDivisions));
+    return out;
+}
+
 PitchClass Scale::degree (int index) const noexcept
 {
     const int n = numDegrees();
     const int wrapped = ((index % n) + n) % n;
-    return root.transposed (scaleType->intervals[static_cast<std::size_t> (wrapped)]);
+    return root.transposed (edo::convert (scaleType->intervals[static_cast<std::size_t> (wrapped)],
+                                          scaleType->divisions, divisions()));
 }
 
 PitchClassSet Scale::pitchClasses() const noexcept
 {
-    PitchClassSet s;
+    auto s = PitchClassSet::withDivisions (divisions());
     for (const int i : scaleType->intervals)
-        s.insert (root.transposed (i));
+        s.insert (root.transposed (edo::convert (i, scaleType->divisions, divisions())));
     return s;
 }
 
-int Scale::quantize (int midiNote) const noexcept
+int Scale::quantize (int note) const noexcept
 {
     const auto set = pitchClasses();
     if (set.empty())
-        return midiNote;
+        return note;
 
-    for (int delta = 0; delta <= 6; ++delta)
+    const int d = divisions();
+    for (int delta = 0; delta <= d / 2; ++delta)
     {
-        if (set.contains (PitchClass::fromMidi (midiNote - delta))) return midiNote - delta;
-        if (set.contains (PitchClass::fromMidi (midiNote + delta))) return midiNote + delta;
+        if (set.contains (PitchClass::fromNote (note - delta, d))) return note - delta;
+        if (set.contains (PitchClass::fromNote (note + delta, d))) return note + delta;
     }
-    return midiNote;
+    return note;
 }
 
 std::string Scale::name (bool preferFlats) const
