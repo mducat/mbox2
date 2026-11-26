@@ -21,14 +21,14 @@ namespace stringTunings
         constexpr std::array kUkulele  { 67, 60, 64, 69 };
     } // namespace
 
-    const TuningPreset guitarStandard { "Guitar - Standard (EADGBE)", kStandard };
-    const TuningPreset guitarDropD    { "Guitar - Drop D (DADGBE)",   kDropD };
-    const TuningPreset guitarDADGAD   { "Guitar - DADGAD",            kDADGAD };
-    const TuningPreset guitarOpenG    { "Guitar - Open G (DGDGBD)",   kOpenG };
-    const TuningPreset guitarOpenD    { "Guitar - Open D (DADF#AD)",  kOpenD };
-    const TuningPreset guitar7String  { "Guitar - 7 strings (BEADGBE)", kSeven };
-    const TuningPreset bass4          { "Bass - 4 strings (EADG)",    kBass4 };
-    const TuningPreset ukulele        { "Ukulele (GCEA)",             kUkulele };
+    const TuningPreset guitarStandard { "Guitare - Standard (EADGBE)", kStandard };
+    const TuningPreset guitarDropD    { "Guitare - Drop D (DADGBE)",  kDropD };
+    const TuningPreset guitarDADGAD   { "Guitare - DADGAD",           kDADGAD };
+    const TuningPreset guitarOpenG    { "Guitare - Open G (DGDGBD)",  kOpenG };
+    const TuningPreset guitarOpenD    { "Guitare - Open D (DADF#AD)", kOpenD };
+    const TuningPreset guitar7String  { "Guitare - 7 cordes (BEADGBE)", kSeven };
+    const TuningPreset bass4          { "Basse - 4 cordes (EADG)",    kBass4 };
+    const TuningPreset ukulele        { "Ukulélé (GCEA)",             kUkulele };
 
     std::span<const TuningPreset* const> presets()
     {
