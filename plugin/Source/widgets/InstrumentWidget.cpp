@@ -63,6 +63,7 @@ InstrumentWidget::InstrumentWidget (AppState& s) : Widget (s)
             out->setEnabled (midiOutButton.getToggleState());
     };
     addAndMakeVisible (midiOutButton);
+    addAndMakeVisible (soundBox);
 
     piano.onKeyClicked = [this] (int note) { togglePitch (note); };
     fretboard.onPositionClicked = [this] (inst::FretPosition pos) { togglePosition (pos); };
@@ -147,7 +148,10 @@ void InstrumentWidget::togglePitch (int note)
             f = -1;
 
     voicingIndex = -1;
+    const auto before = manualNotes();
     state.toggleManualNote (note);
+    if (! std::binary_search (before.begin(), before.end(), note))
+        playNotes (*this, state, { note }, sound::Instrument::piano);
 }
 
 void InstrumentWidget::togglePosition (inst::FretPosition pos)
@@ -179,6 +183,7 @@ void InstrumentWidget::togglePosition (inst::FretPosition pos)
     {
         stringFrets[static_cast<std::size_t> (pos.string)] = pos.fret;
         manual.push_back (board.pitchAt (pos));
+        playNotes (*this, state, { board.pitchAt (pos) }, sound::Instrument::guitar);
     }
 
     voicingIndex = -1;
@@ -223,6 +228,8 @@ void InstrumentWidget::stepVoicing (int delta)
     stringFrets = v.frets;
     voicingIndex = index;
     state.setManualNotes (v.pitches (board));
+    playNotes (*this, state, v.pitches (board),
+               static_cast<ViewMode> (viewBox.getSelectedId()) == ViewMode::piano ? sound::Instrument::piano : sound::Instrument::guitar);
     refresh();
 }
 
@@ -355,7 +362,7 @@ void InstrumentWidget::resized()
     auto toolbar = area.removeFromTop (28);
     viewBox.setBounds (toolbar.removeFromLeft (140));
     toolbar.removeFromLeft (6);
-    stringTuningBox.setBounds (toolbar.removeFromLeft (230));
+    stringTuningBox.setBounds (toolbar.removeFromLeft (200));
     toolbar.removeFromLeft (10);
     prevVoicing.setBounds (toolbar.removeFromLeft (28));
     voicingLabel.setBounds (toolbar.removeFromLeft (110));
@@ -363,6 +370,8 @@ void InstrumentWidget::resized()
     midiOutButton.setBounds (toolbar.removeFromRight (110));
     toolbar.removeFromRight (6);
     clearButton.setBounds (toolbar.removeFromRight (70));
+    toolbar.removeFromRight (6);
+    soundBox.setBounds (toolbar.removeFromRight (130));
     area.removeFromTop (8);
 
     const auto mode = static_cast<ViewMode> (viewBox.getSelectedId());

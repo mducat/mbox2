@@ -24,6 +24,8 @@ mbox2/
 │   │   ├── Keyboard.h    # disposition d'un clavier pour n'importe quel N-TET
 │   │   ├── Fretboard.h   # manche (accordages de cordes, frettes en N-TET)
 │   │   └── GuitarVoicing.h # recherche de doigtés jouables d'un accord
+│   ├── include/mbox/sound/
+│   │   └── Instruments.h # piano (modal) et guitare (Karplus-Strong) sans échantillons, polyphonie
 │   ├── include/mbox/geometry/
 │   │   └── TrichordSpace.h  # espace des accords de 3 notes (orbifold de Tymoczko), conduites de voix
 │   ├── src/
@@ -34,6 +36,7 @@ mbox2/
 │       ├── PluginEditor.*     # fenêtre : en-tête (tempérament, tonalité) + un onglet par widget
 │       ├── state/AppState.*   # état partagé par les widgets
 │       ├── spectrum/          # synthé additif, entrée sidechain et FFT du spectrogramme
+│       ├── sound/             # InstrumentPlayer : notes piano / guitare jouées depuis les widgets
 │       └── widgets/           # Widget.h (classe de base), WidgetRegistry.cpp (liste), widgets
 └── CMakeLists.txt
 ```
@@ -61,6 +64,28 @@ courant (ou de l'accord sélectionné dans la progression si rien ne joue). Les
 notes activées à la main sont jouées sur la sortie MIDI (case « Sortie MIDI »,
 12-TET seulement pour l'instant). Les deux instruments se redessinent pour le
 tempérament choisi : N touches et N frettes par octave.
+
+### Son piano / guitare
+
+Les widgets jouent un vrai son, sans échantillons (rien à embarquer, aucune
+licence) : la guitare est une corde pincée Karplus-Strong étendue (retard
+fractionnaire, position du médiator, résonance de caisse), le piano un modèle
+modal (partiels inharmoniques de corde raide, spectre selon la position et la
+dureté du marteau, deux cordes légèrement désaccordées par note). Chaque note
+est jouée à sa fréquence exacte dans le tempérament courant, N-TET compris.
+
+- Piano / guitare : un clic sur une touche joue du piano, un clic sur une case
+  joue de la guitare, un doigté choisi avec `<` `>` est gratté.
+- Carte tonale : l'accord cliqué est joué en plus d'être ajouté à la progression.
+- Composition : bouton « Play » (une mesure de 4 temps par accord, tempo
+  réglable, « Boucle »), qui sélectionne l'accord joué pour que les autres
+  onglets suivent. Un clic sur une mesure joue l'accord.
+- Le sélecteur « Son : piano / guitare / muet » est partagé par tous les
+  onglets et sauvegardé avec le projet ; « muet » coupe tous ces sons.
+
+Ces notes passent par la même voie audio que le synthé du spectrogramme : elles
+sortent sur la sortie audio du plugin (indépendamment de la case « Audible »)
+et apparaissent dans le spectrogramme quand sa source est le synthé interne.
 
 ### Espace des accords de 3 notes (onglet « Espace des accords 3D »)
 

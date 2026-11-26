@@ -18,7 +18,9 @@ void SpectrumEngine::prepare (double newSampleRate, int maximumBlockSize)
 {
     sampleRate.store (newSampleRate);
     synth.prepare (newSampleRate);
+    instruments.prepare (newSampleRate);
     synthBuffer.setSize (1, maximumBlockSize, false, true, true);
+    instrumentBuffer.setSize (1, maximumBlockSize, false, true, true);
     analysisBuffer.setSize (1, maximumBlockSize, false, true, true);
 }
 
@@ -29,6 +31,7 @@ void SpectrumEngine::process (juce::AudioBuffer<float>& buffer, int numInputChan
     {
         // Host sent a bigger block than announced: not real-time safe, but better than crashing.
         synthBuffer.setSize (1, numSamples, false, true, true);
+        instrumentBuffer.setSize (1, numSamples, false, true, true);
         analysisBuffer.setSize (1, numSamples, false, true, true);
     }
 
@@ -50,12 +53,24 @@ void SpectrumEngine::process (juce::AudioBuffer<float>& buffer, int numInputChan
     synthBuffer.clear (0, 0, numSamples);
     synth.render (synthBuffer, midi, 0, numSamples);
 
-    if (src == Source::internalSynth)
-        analysisBuffer.copyFrom (0, 0, synthBuffer, 0, 0, numSamples);
+    // Piano / guitar previews from the widgets: always audible (they are only
+    // triggered when the user asked for sound), analysed with the synth.
+    instrumentBuffer.clear (0, 0, numSamples);
+    instruments.render (instrumentBuffer.getWritePointer (0), numSamples);
 
-    if (synthAudible.load (std::memory_order_relaxed))
-        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+    if (src == Source::internalSynth)
+    {
+        analysisBuffer.copyFrom (0, 0, synthBuffer, 0, 0, numSamples);
+        analysisBuffer.addFrom (0, 0, instrumentBuffer, 0, 0, numSamples);
+    }
+
+    const bool audible = synthAudible.load (std::memory_order_relaxed);
+    for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+    {
+        if (audible)
             buffer.copyFrom (ch, 0, synthBuffer, 0, 0, numSamples);
+        buffer.addFrom (ch, 0, instrumentBuffer, 0, 0, numSamples);
+    }
 
     // 3. Hand the analysed signal to the UI thread (dropped if the FIFO is full, e.g. editor closed).
     const auto scope = fifo.write (numSamples);

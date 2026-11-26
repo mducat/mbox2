@@ -114,6 +114,7 @@ void MusicBox2Processor::getStateInformation (juce::MemoryBlock& destData)
     editor.setProperty ("tab", lastTabIndex, nullptr);
     editor.setProperty ("width", lastEditorWidth, nullptr);
     editor.setProperty ("height", lastEditorHeight, nullptr);
+    editor.setProperty ("sound", static_cast<int> (soundChoice.getValue()), nullptr);
     state.appendChild (editor, nullptr);
 
     juce::ValueTree spectrum ("Spectrum");
@@ -144,6 +145,9 @@ void MusicBox2Processor::setStateInformation (const void* data, int sizeInBytes)
         lastTabIndex = editor.getProperty ("tab", 0);
         lastEditorWidth = editor.getProperty ("width", 900);
         lastEditorHeight = editor.getProperty ("height", 640);
+        const int sound = editor.getProperty ("sound", 1);
+        if (juce::MessageManager::existsAndIsCurrentThread())
+            soundChoice = juce::jlimit (1, 3, sound);
     }
 
     if (const auto spectrum = state.getChildWithName ("Spectrum"); spectrum.isValid())

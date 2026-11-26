@@ -18,6 +18,7 @@ add_executable(mbox_theory_tests
     VoicingTests.cpp
     InstrumentTests.cpp
     TrichordSpaceTests.cpp
+    SoundTests.cpp
 )
 target_link_libraries(mbox_theory_tests PRIVATE mbox::theory Catch2::Catch2WithMain)
 

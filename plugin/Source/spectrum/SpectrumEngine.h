@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AdditiveSynth.h"
+#include "../sound/InstrumentPlayer.h"
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
@@ -14,7 +15,7 @@ namespace mbox::spectrum
 /** What the spectrogram listens to. */
 enum class Source : int
 {
-    internalSynth = 0, // the built-in additive synth playing the incoming MIDI notes
+    internalSynth = 0, // the built-in additive synth playing the incoming MIDI notes (+ piano / guitar previews)
     sidechain     = 1  // audio routed from the DAW into the plugin's input bus
 };
 
@@ -40,7 +41,7 @@ public:
     /**
         Audio thread. The first numInputChannels channels of `buffer` hold the
         sidechain input; on return `buffer` holds the plugin output (silence,
-        plus the synth if it is audible).
+        plus the synth if it is audible, plus the piano / guitar previews).
     */
     void process (juce::AudioBuffer<float>& buffer, int numInputChannels, const juce::MidiBuffer& midi);
 
@@ -59,12 +60,16 @@ public:
 
     AdditiveSynth& getSynth() noexcept { return synth; }
 
+    /** Piano / guitar notes played from the widgets (audible unless switched off there). */
+    sound::InstrumentPlayer& getInstruments() noexcept { return instruments; }
+
     std::atomic<Source> source { Source::internalSynth };
     std::atomic<bool> synthAudible { false }; // muted by default: the plugin stays a silent MIDI tool
 
 private:
     AdditiveSynth synth;
-    juce::AudioBuffer<float> synthBuffer, analysisBuffer;
+    sound::InstrumentPlayer instruments;
+    juce::AudioBuffer<float> synthBuffer, instrumentBuffer, analysisBuffer;
     std::atomic<double> sampleRate { 44100.0 };
 
     // Audio -> UI FIFO

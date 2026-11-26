@@ -2,6 +2,7 @@
 
 #include "FretboardView.h"
 #include "PianoView.h"
+#include "SoundSupport.h"
 #include "Widget.h"
 
 #include <mbox/instrument/GuitarVoicing.h>
@@ -24,6 +25,8 @@ class ManualNoteOutput;
     - "Voicing" cycles through playable fingerings of the current chord (or of
       the chord selected in the progression when nothing is playing).
     - "MIDI out" switches the playback of manual notes on the plugin's output.
+    - Switching a note on sounds it: piano for a key, guitar for a fret (a
+      fingering chosen with "<" ">" is strummed). "Son : muet" silences it.
 
     Everything works in note numbers of the current tuning, so both instruments
     re-lay themselves out for any N-TET (N frets and N keys per octave).
@@ -72,6 +75,7 @@ private:
     juce::TextButton prevVoicing { "<" }, nextVoicing { ">" }, clearButton { juce::String::fromUTF8 ("Effacer") };
     juce::Label voicingLabel;
     juce::ToggleButton midiOutButton { "MIDI out" };
+    SoundSelector soundBox;
     PianoView piano;
     FretboardView fretboard;
     juce::Rectangle<int> headerArea;
