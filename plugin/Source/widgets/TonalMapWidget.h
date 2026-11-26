@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ProgressionStrip.h"
+#include "SoundSupport.h"
 #include "TonalMapComponent.h"
 #include "Widget.h"
 
@@ -16,6 +17,7 @@ namespace mbox
     - Clicking a chord appends it to the AppState progression with its Roman
       numeral ("V6/5/V") and a close voicing in the current tuning.
     - Chords already in the progression are highlighted on the map.
+    - A chosen chord is also played (piano or guitar, "Son" selector).
 */
 class TonalMapWidget final : public Widget
 {
@@ -38,6 +40,7 @@ private:
 
     TonalMapComponent map;
     ProgressionStrip strip;
+    SoundSelector soundBox;
     std::vector<theory::RomanChord> allChords; // every chord of the key, all inversions, for lookups
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TonalMapWidget)

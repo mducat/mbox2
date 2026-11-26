@@ -67,7 +67,34 @@ CompositionWidget::CompositionWidget (AppState& s) : Widget (s)
     };
     addAndMakeVisible (tuningBox);
 
-    score.onChordClicked = [this] (int index) { state.setSelectedChordIndex (index); };
+    playButton.setTooltip (juce::String::fromUTF8 ("Joue la progression (depuis l'accord sélectionné s'il y en a un)"));
+    playButton.setClickingTogglesState (false);
+    playButton.onClick = [this] { playing ? stopPlayback() : startPlayback(); };
+    addAndMakeVisible (playButton);
+
+    tempoLabel.setText ("Tempo", juce::dontSendNotification);
+    tempoLabel.setColour (juce::Label::textColourId, colours::textDim);
+    tempoLabel.setJustificationType (juce::Justification::centredRight);
+    addAndMakeVisible (tempoLabel);
+
+    tempoSlider.setRange (40.0, 220.0, 1.0);
+    tempoSlider.setValue (90.0, juce::dontSendNotification);
+    tempoSlider.setTextValueSuffix (" BPM");
+    tempoSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 70, 22);
+    tempoSlider.setTooltip (juce::String::fromUTF8 ("Une mesure de 4 temps par accord"));
+    addAndMakeVisible (tempoSlider);
+
+    loopToggle.setColour (juce::ToggleButton::textColourId, colours::text);
+    addAndMakeVisible (loopToggle);
+    addAndMakeVisible (soundBox);
+
+    score.onChordClicked = [this] (int index)
+    {
+        state.setSelectedChordIndex (index);
+        // Hear the chord clicked on the staff (not while the progression plays).
+        if (! playing && juce::isPositiveAndBelow (index, static_cast<int> (state.getProgression().size())))
+            playNotes (*this, state, state.getProgression()[static_cast<std::size_t> (index)].notes, std::nullopt, 0.75f, 0.0, 2.0);
+    };
     viewport.setViewedComponent (&score, false);
     viewport.setScrollBarsShown (false, true);
     addAndMakeVisible (viewport);
@@ -78,9 +105,82 @@ CompositionWidget::CompositionWidget (AppState& s) : Widget (s)
 void CompositionWidget::appStateChanged (AppState&, int changes)
 {
     if ((changes & (AppState::progressionChanged | AppState::keyChanged | AppState::tuningChanged)) != 0)
+    {
+        stopPlayback(); // the scheduled notes no longer match the score
         refreshScore();
+    }
     if ((changes & AppState::selectionChanged) != 0)
         score.setSelectedIndex (state.getSelectedChordIndex());
+}
+
+double CompositionWidget::secondsPerChord() const
+{
+    return 4.0 * 60.0 / juce::jmax (1.0, tempoSlider.getValue());
+}
+
+void CompositionWidget::startPlayback()
+{
+    const auto& progression = state.getProgression();
+    if (progression.empty() || ! SoundSelector::chosenInstrument (*this))
+        return;
+
+    stopAllNotes (*this);
+
+    const int selected = state.getSelectedChordIndex();
+    playStartIndex = juce::isPositiveAndBelow (selected, static_cast<int> (progression.size())) && selected < static_cast<int> (progression.size()) - 1 ? selected : 0;
+    playCount = static_cast<int> (progression.size()) - playStartIndex;
+    playChordSeconds = secondsPerChord();
+
+    // Everything is scheduled now, sample-accurately, on the audio thread.
+    for (int i = 0; i < playCount; ++i)
+        playNotes (*this, state, progression[static_cast<std::size_t> (playStartIndex + i)].notes, std::nullopt,
+                   0.75f, i * playChordSeconds, playChordSeconds * 0.97);
+
+    playing = true;
+    playingIndex = -1;
+    playStartMs = juce::Time::getMillisecondCounterHiRes();
+    playButton.setButtonText ("Stop");
+    tempoSlider.setEnabled (false);
+    startTimerHz (30);
+    timerCallback();
+}
+
+void CompositionWidget::stopPlayback()
+{
+    if (! playing)
+        return;
+    playing = false;
+    stopTimer();
+    stopAllNotes (*this);
+    playButton.setButtonText ("Play");
+    tempoSlider.setEnabled (true);
+}
+
+void CompositionWidget::timerCallback()
+{
+    const double elapsed = (juce::Time::getMillisecondCounterHiRes() - playStartMs) / 1000.0;
+    const int step = static_cast<int> (elapsed / playChordSeconds);
+
+    if (step >= playCount)
+    {
+        const bool again = loopToggle.getToggleState();
+        playing = false; // let the last chord ring
+        stopTimer();
+        playButton.setButtonText ("Play");
+        tempoSlider.setEnabled (true);
+        if (again)
+        {
+            state.setSelectedChordIndex (-1); // loop from the start
+            startPlayback();
+        }
+        return;
+    }
+
+    if (step != playingIndex)
+    {
+        playingIndex = step;
+        state.setSelectedChordIndex (playStartIndex + step); // the other widgets follow along
+    }
 }
 
 void CompositionWidget::refreshScore()
@@ -144,6 +244,16 @@ void CompositionWidget::resized()
     tabToggle.setBounds (header.removeFromRight (100));
     voiceLeadingToggle.setBounds (header.removeFromRight (160));
     notice.setBounds (header);
+
+    area.removeFromTop (4);
+    auto transport = area.removeFromTop (26);
+    playButton.setBounds (transport.removeFromLeft (70).reduced (0, 1));
+    transport.removeFromLeft (8);
+    tempoLabel.setBounds (transport.removeFromLeft (50));
+    tempoSlider.setBounds (transport.removeFromLeft (150));
+    transport.removeFromLeft (8);
+    loopToggle.setBounds (transport.removeFromLeft (80));
+    soundBox.setBounds (transport.removeFromLeft (140).reduced (0, 2));
 
     area.removeFromTop (4);
     viewport.setBounds (area);

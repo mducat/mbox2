@@ -66,6 +66,12 @@ public:
     */
     void queueUiNote (int note, bool on) noexcept;
 
+    /**
+        Sound of the widgets' piano / guitar previews, shared by every selector
+        (mbox::SoundChoice: 1 = piano, 2 = guitar, 3 = muted). Message thread only.
+    */
+    juce::Value& getSoundChoice() noexcept { return soundChoice; }
+
     /** Applies a state restored off the message thread, if any. Message thread only. */
     void applyPendingState();
 
@@ -85,6 +91,7 @@ private:
     juce::AbstractFifo uiNoteFifo { 512 };
     std::array<std::int16_t, 512> uiNotes {}; // note number for note-on, -(note + 1) for note-off
     mbox::ManualNoteOutput manualNoteOutput { appState, [this] (int note, bool on) { queueUiNote (note, on); } };
+    juce::Value soundChoice { juce::var (1) };
     juce::SpinLock pendingStateLock;
     juce::ValueTree pendingState;
 

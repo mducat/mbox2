@@ -12,7 +12,9 @@ TonalMapWidget::TonalMapWidget (AppState& s) : Widget (s), strip (s)
                               rc.voicingIn (n, 48),
                               rc.numeral(),
                               rc.symbol() };
-        state.setSelectedChordIndex (state.appendChord (std::move (pc)));
+        const auto index = state.appendChord (std::move (pc));
+        state.setSelectedChordIndex (index);
+        playNotes (*this, state, state.getProgression()[static_cast<std::size_t> (index)].notes, std::nullopt, 0.75f, 0.0, 2.0);
     };
 
     strip.chipColour = [this] (const ProgressionChord& c)
@@ -23,6 +25,7 @@ TonalMapWidget::TonalMapWidget (AppState& s) : Widget (s), strip (s)
 
     addAndMakeVisible (map);
     addAndMakeVisible (strip);
+    addAndMakeVisible (soundBox); // over the right end of the map's toolbar
 
     syncKey();
 }
@@ -83,6 +86,7 @@ void TonalMapWidget::resized()
     auto area = getLocalBounds();
     strip.setBounds (area.removeFromBottom (64));
     map.setBounds (area);
+    soundBox.setBounds (area.reduced (10).removeFromTop (32) /* map toolbar height */.removeFromRight (130).reduced (0, 2));
 }
 
 void TonalMapWidget::paint (juce::Graphics& g)
