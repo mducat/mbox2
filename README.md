@@ -204,6 +204,8 @@ L'onglet **Spectre harmonique** décompose le son en partiels :
 - à droite, le spectre instantané, avec par-dessus les partiels théoriques des
   notes actives (une couleur par note), les partiels communs à plusieurs notes
   (cercles jaunes) et les pics détectés (points blancs) ;
+- sous le spectrogramme, la forme d'onde du signal (case **Onde**), calée sur
+  4 périodes de la note la plus grave pour rester immobile ;
 - en bas, la fondamentale virtuelle de l'accord, sa rugosité (dissonance
   sensorielle, modèle de Plomp-Levelt / Sethares) et le nombre de partiels
   communs.

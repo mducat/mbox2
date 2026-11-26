@@ -52,6 +52,9 @@ public:
     */
     bool pullFrame (std::vector<float>& magnitudesDb);
 
+    /** UI thread: the last kFftSize analysed samples (oldest first), as of the last pullFrame(). */
+    const std::vector<float>& getRecentSamples() const noexcept { return history; }
+
     double getSampleRate() const noexcept { return sampleRate.load(); }
     double getBinWidth() const noexcept { return getSampleRate() / kFftSize; }
 
