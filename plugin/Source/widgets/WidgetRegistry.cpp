@@ -2,6 +2,7 @@
 
 #include "CircleOfFifthsWidget.h"
 #include "CompositionWidget.h"
+#include "InstrumentWidget.h"
 // One #include per widget, keep alphabetical to ease merges.
 
 namespace mbox
@@ -22,6 +23,7 @@ const std::vector<WidgetInfo>& allWidgets()
     static const std::vector<WidgetInfo> list {
         make<CircleOfFifthsWidget> ("circle-of-fifths", "Cercle des quintes"),
         make<CompositionWidget>    ("composition", "Composition"),
+        make<InstrumentWidget> ("instruments", "Piano / guitare"),
     };
     return list;
 }
