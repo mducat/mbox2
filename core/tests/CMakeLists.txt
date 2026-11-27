@@ -14,6 +14,7 @@ add_executable(mbox_theory_tests
     MicrotonalTests.cpp
     HarmonicsTests.cpp
     WaveformTests.cpp
+    InterferenceTests.cpp
     HarmonyTests.cpp
     SpellingTests.cpp
     VoicingTests.cpp
