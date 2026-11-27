@@ -20,6 +20,8 @@ namespace
 
     const juce::Colour kGrid   { 0xff2c313c };
     const juce::Colour kShared { 0xffffd54f };
+    const juce::Colour kConstructive { 0xff66bb6a };
+    const juce::Colour kDestructive  { 0xffef5350 };
 
     /** Non-ASCII UI text is written with UTF-8 escapes so the source compiles the same on every compiler. */
     juce::String utf8 (const char* text) { return juce::String::fromUTF8 (text); }
@@ -74,6 +76,13 @@ HarmonicSpectrumWidget::HarmonicSpectrumWidget (AppState& s) : Widget (s)
     waveformButton.setTooltip (utf8 ("Affiche la forme d'onde du signal analys\xc3\xa9 (oscilloscope cal\xc3\xa9 sur la p\xc3\xa9riode de la note la plus grave)."));
     waveformButton.onClick = [this] { resized(); repaint(); };
     addAndMakeVisible (waveformButton);
+
+    interferenceButton.setButtonText (utf8 ("Interf\xc3\xa9rences"));
+    interferenceButton.setToggleState (true, juce::dontSendNotification);
+    interferenceButton.setTooltip (utf8 ("Montre quand les partiels des notes s'additionnent (constructif, vert) "
+                                         "ou s'annulent (destructif, rouge), et les battements qui en r\xc3\xa9sultent."));
+    interferenceButton.onClick = [this] { resized(); repaint(); };
+    addAndMakeVisible (interferenceButton);
 
     partialsLabel.setJustificationType (juce::Justification::centredRight);
     addAndMakeVisible (partialsLabel);
@@ -149,16 +158,26 @@ void HarmonicSpectrumWidget::resized()
     bar.removeFromLeft (8);
     audibleButton.setBounds (bar.removeFromLeft (80));
     waveformButton.setBounds (bar.removeFromLeft (70));
+    interferenceButton.setBounds (bar.removeFromLeft (110));
     partialsSlider.setBounds (bar.removeFromRight (130));
     partialsLabel.setBounds (bar.removeFromRight (60));
 
     infoArea = area.removeFromBottom (40);
     area.removeFromBottom (4);
 
+    const auto stripHeight = juce::jlimit (60, 140, area.getHeight() / 4);
+
+    interferenceArea = {};
+    if (interferenceButton.getToggleState())
+    {
+        interferenceArea = area.removeFromBottom (stripHeight).withTrimmedLeft (44);
+        area.removeFromBottom (6);
+    }
+
     waveformArea = {};
     if (waveformButton.getToggleState())
     {
-        waveformArea = area.removeFromBottom (juce::jlimit (60, 140, area.getHeight() / 4)).withTrimmedLeft (44);
+        waveformArea = area.removeFromBottom (stripHeight).withTrimmedLeft (44);
         area.removeFromBottom (6);
     }
 
@@ -296,6 +315,11 @@ void HarmonicSpectrumWidget::updateTheory()
     chordRoughness = analysis::roughness (partials);
     virtualRoot    = fundamentals.size() >= 2 ? analysis::virtualFundamental (fundamentals, 20.0, 32, 16.0)
                                               : std::optional<double> {};
+
+    // Interference: close partials of different notes, which beat.
+    beatingPairs    = analysis::findBeatingPairs (partials, 6);
+    beatViewSeconds = analysis::beatViewDuration (beatingPairs, 2.0, 0.25, 2.0);
+    interferenceStartMs = juce::Time::getMillisecondCounterHiRes();
 }
 
 //==============================================================================
@@ -329,6 +353,9 @@ void HarmonicSpectrumWidget::paint (juce::Graphics& g)
 
     if (! waveformArea.isEmpty())
         paintWaveform (g, waveformArea.toFloat());
+
+    if (! interferenceArea.isEmpty())
+        paintInterference (g, interferenceArea.toFloat());
 }
 
 void HarmonicSpectrumWidget::paintFrequencyAxis (juce::Graphics& g, juce::Rectangle<float> area)
@@ -393,6 +420,19 @@ void HarmonicSpectrumWidget::paintSpectrum (juce::Graphics& g, juce::Rectangle<f
         g.setColour (sourceColour (p.source).withAlpha (p.harmonic == 1 ? 1.0f : 0.75f));
         g.fillRect (juce::Rectangle<float> (area.getRight() - len, y - (p.harmonic == 1 ? 1.5f : 0.75f),
                                             len, p.harmonic == 1 ? 3.0f : 1.5f));
+    }
+
+    // Beating pairs: close partials of different notes, joined by a red bracket.
+    for (std::size_t i = 0; i < beatingPairs.size(); ++i)
+    {
+        const auto& pair = beatingPairs[i];
+        const auto ya = yForFrequency (pair.a.frequency, area);
+        const auto yb = yForFrequency (pair.b.frequency, area);
+        const auto x  = area.getRight() - 16.0f - 5.0f * static_cast<float> (i % 3);
+        g.setColour (kDestructive.withAlpha (i < 3 ? 0.95f : 0.6f));
+        g.drawLine (x, ya, x, yb, 1.5f);
+        g.drawLine (x, ya, x + 4.0f, ya, 1.5f);
+        g.drawLine (x, yb, x + 4.0f, yb, 1.5f);
     }
 
     // Partials shared by several notes (what makes intervals sound consonant).
@@ -508,6 +548,115 @@ void HarmonicSpectrumWidget::paintWaveform (juce::Graphics& g, juce::Rectangle<f
     g.setColour (colours::textDim);
     g.setFont (juce::FontOptions (11.0f));
     g.drawText (caption, area.reduced (6.0f, 3.0f), juce::Justification::topRight);
+}
+
+juce::String HarmonicSpectrumWidget::partialLabel (const analysis::Partial& p) const
+{
+    const auto source = static_cast<std::size_t> (p.source);
+    const auto note   = source < fundamentals.size() ? noteLabel (fundamentals[source], false) : juce::String ("?");
+    return note + " h" + juce::String (p.harmonic);
+}
+
+void HarmonicSpectrumWidget::paintInterference (juce::Graphics& g, juce::Rectangle<float> area)
+{
+    g.setColour (colours::background);
+    g.fillRect (area);
+    g.setColour (kGrid);
+    g.drawRect (area);
+
+    auto content = area.reduced (6.0f, 2.0f);
+    auto header  = content.removeFromTop (14.0f);
+    auto footer  = content.removeFromBottom (12.0f);
+
+    g.setFont (juce::FontOptions (11.0f));
+    {
+        auto legend = header.removeFromRight (200.0f);
+        g.setColour (kConstructive);
+        g.drawText ("vert = constructif", legend.removeFromLeft (100.0f), juce::Justification::centredRight);
+        g.setColour (kDestructive);
+        g.drawText ("rouge = destructif", legend, juce::Justification::centredRight);
+    }
+    g.setColour (colours::textDim);
+    g.drawText (utf8 ("Interf\xc3\xa9rences entre partiels proches (en phase au d\xc3\xa9part) : amplitude de leur somme"),
+                header, juce::Justification::centredLeft);
+
+    if (beatingPairs.empty())
+    {
+        g.setColour (colours::textDim);
+        g.drawText (fundamentals.size() < 2 ? utf8 ("Jouez au moins deux notes pour voir leurs partiels interf\xc3\xa9rer.")
+                                            : utf8 ("Aucun battement audible : les partiels proches co\xc3\xaf" "ncident exactement ou sont trop \xc3\xa9" "cart\xc3\xa9s."),
+                    content, juce::Justification::centred);
+        return;
+    }
+
+    const auto labelWidth = juce::jmin (210.0f, content.getWidth() * 0.3f);
+    const auto laneCount  = juce::jlimit (1, static_cast<int> (beatingPairs.size()), static_cast<int> (content.getHeight() / 18.0f));
+    const auto laneHeight = content.getHeight() / static_cast<float> (laneCount);
+    const auto plotX      = content.getX() + labelWidth;
+    const auto plotWidth  = content.getRight() - plotX;
+    const auto width      = juce::jmax (1, static_cast<int> (plotWidth));
+
+    for (int i = 0; i < laneCount; ++i)
+    {
+        const auto& pair = beatingPairs[static_cast<std::size_t> (i)];
+        auto lane  = juce::Rectangle<float> (content.getX(), content.getY() + laneHeight * static_cast<float> (i), content.getWidth(), laneHeight);
+        auto label = lane.removeFromLeft (labelWidth).reduced (0.0f, 1.0f);
+
+        // Label: which partials, and how fast they beat.
+        g.setColour (sourceColour (pair.a.source));
+        g.fillRect (label.removeFromLeft (6.0f).withSizeKeepingCentre (6.0f, 6.0f));
+        label.removeFromLeft (2.0f);
+        g.setColour (sourceColour (pair.b.source));
+        g.fillRect (label.removeFromLeft (6.0f).withSizeKeepingCentre (6.0f, 6.0f));
+        label.removeFromLeft (5.0f);
+        g.setColour (colours::text);
+        g.drawText (partialLabel (pair.a) + utf8 (" \xc3\x97 ") + partialLabel (pair.b), label, juce::Justification::centredLeft);
+        g.setColour (colours::textDim);
+        g.drawText (juce::String (pair.beatHz, pair.beatHz < 10.0 ? 2 : 1) + " Hz ", label, juce::Justification::centredRight);
+
+        // Band: +/- amplitude of the sum, normalised to the fully constructive a1 + a2.
+        const auto sumMax  = pair.a.amplitude + pair.b.amplitude;
+        const auto neutral = static_cast<float> (std::sqrt (pair.a.amplitude * pair.a.amplitude + pair.b.amplitude * pair.b.amplitude) / sumMax);
+        const auto low     = static_cast<float> (std::abs (pair.a.amplitude - pair.b.amplitude) / sumMax);
+        const auto cy      = lane.getCentreY();
+        const auto half    = juce::jmax (2.0f, lane.getHeight() * 0.5f - 1.5f);
+
+        for (int px = 0; px < width; ++px)
+        {
+            const auto t   = beatViewSeconds * px / width;
+            const auto env = static_cast<float> (analysis::pairSumAmplitude (pair, t) / sumMax);
+            const auto strength = env >= neutral ? (env - neutral) / juce::jmax (1e-6f, 1.0f - neutral)
+                                                 : (neutral - env) / juce::jmax (1e-6f, neutral - low);
+            g.setColour ((env >= neutral ? kConstructive : kDestructive).withAlpha (0.25f + 0.75f * strength));
+            g.drawVerticalLine (juce::roundToInt (plotX + static_cast<float> (px)), cy - env * half, cy + env * half);
+        }
+
+        // "No net interference" level (the two partials in quadrature).
+        g.setColour (colours::textDim.withAlpha (0.7f));
+        for (const auto y : { cy - neutral * half, cy + neutral * half })
+        {
+            juce::Path ref;
+            ref.startNewSubPath (plotX, y);
+            ref.lineTo (plotX + plotWidth, y);
+            const float dashes[] = { 3.0f, 3.0f };
+            juce::PathStrokeType (1.0f).createDashedStroke (ref, ref, dashes, 2);
+            g.fillPath (ref);
+        }
+    }
+
+    // Cursor following the beats in real time while the chord is held.
+    const auto elapsed = (juce::Time::getMillisecondCounterHiRes() - interferenceStartMs) / 1000.0;
+    const auto cursorX = plotX + static_cast<float> (std::fmod (elapsed, beatViewSeconds) / beatViewSeconds) * plotWidth;
+    g.setColour (juce::Colours::white.withAlpha (0.8f));
+    g.drawVerticalLine (juce::roundToInt (cursorX), content.getY(), content.getBottom());
+
+    // Time axis
+    g.setColour (colours::textDim);
+    footer.removeFromLeft (labelWidth);
+    g.drawText ("0", footer, juce::Justification::centredLeft);
+    g.drawText (beatViewSeconds >= 1.0 ? juce::String (beatViewSeconds, 1) + " s"
+                                       : juce::String (juce::roundToInt (beatViewSeconds * 1000.0)) + " ms",
+                footer, juce::Justification::centredRight);
 }
 
 } // namespace mbox

@@ -4,6 +4,7 @@
 #include "../spectrum/SpectrumEngine.h"
 
 #include <mbox/analysis/Harmonics.h>
+#include <mbox/analysis/Interference.h>
 
 #include <array>
 #include <optional>
@@ -54,18 +55,21 @@ private:
     void paintSpectrum (juce::Graphics&, juce::Rectangle<float> area);
     void paintInfo (juce::Graphics&, juce::Rectangle<int> area);
     void paintWaveform (juce::Graphics&, juce::Rectangle<float> area);
+    void paintInterference (juce::Graphics&, juce::Rectangle<float> area);
+    juce::String partialLabel (const analysis::Partial&) const;
 
     spectrum::SpectrumEngine* engine = nullptr; // owned by the processor, found through the editor
 
     juce::ComboBox sourceBox;
     juce::ToggleButton audibleButton { "Audible" };
     juce::ToggleButton waveformButton;
+    juce::ToggleButton interferenceButton;
     juce::Label partialsLabel { {}, "Partiels" };
     juce::Slider partialsSlider { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
     juce::TooltipWindow tooltips { this, 600 };
 
     // Layout
-    juce::Rectangle<int> axisArea, waterfallArea, spectrumArea, waveformArea, infoArea;
+    juce::Rectangle<int> axisArea, waterfallArea, spectrumArea, waveformArea, interferenceArea, infoArea;
 
     // Spectrogram image and frequency mapping
     juce::Image waterfall;
@@ -84,6 +88,9 @@ private:
     std::optional<double> virtualRoot;
     double chordRoughness = 0.0;
     std::vector<mbox::analysis::SpectralPeak> peaks;
+    std::vector<mbox::analysis::BeatingPair> beatingPairs;
+    double beatViewSeconds = 0.25;
+    double interferenceStartMs = 0.0; // when the current chord started, for the moving cursor
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (HarmonicSpectrumWidget)
 };

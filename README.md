@@ -206,6 +206,13 @@ L'onglet **Spectre harmonique** décompose le son en partiels :
   (cercles jaunes) et les pics détectés (points blancs) ;
 - sous le spectrogramme, la forme d'onde du signal (case **Onde**), calée sur
   4 périodes de la note la plus grave pour rester immobile ;
+- la bande **Interférences** (case du même nom) : pour chaque paire de
+  partiels proches de deux notes différentes, l'amplitude de leur somme au fil
+  du temps. Vert quand ils s'additionnent (constructif), rouge quand ils
+  s'annulent (destructif) ; la vitesse de l'alternance est le battement
+  (|f1 − f2|, affiché en Hz). Ces paires sont aussi reliées en rouge sur le
+  spectre. Comparez 12-TET et 31-TET : les battements ralentissent quand les
+  intervalles se rapprochent de l'intonation juste ;
 - en bas, la fondamentale virtuelle de l'accord, sa rugosité (dissonance
   sensorielle, modèle de Plomp-Levelt / Sethares) et le nombre de partiels
   communs.
