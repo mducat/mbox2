@@ -46,11 +46,20 @@ MusicBox2Editor::MusicBox2Editor (MusicBox2Processor& p)
     tonicBox.onChange = applyKey;
     scaleBox.onChange = applyKey;
 
+    // Note naming
+    namingBox.addItem ("C D E", 1);
+    namingBox.addItem (juce::String::fromUTF8 ("Do R\xc3\xa9 Mi"), 2);
+    namingBox.setTooltip (juce::String::fromUTF8 ("Notation des notes : anglaise (C D E) ou solf\xc3\xa8ge (Do R\xc3\xa9 Mi)"));
+    namingBox.onChange = [this]
+    {
+        state.setNoteNaming (namingBox.getSelectedId() == 2 ? theory::NoteNaming::Solfege : theory::NoteNaming::English);
+    };
+
     chordLabel.setJustificationType (juce::Justification::centredRight);
     chordLabel.setFont (juce::FontOptions (24.0f, juce::Font::bold));
     chordLabel.setColour (juce::Label::textColourId, mbox::colours::text);
 
-    for (auto* c : { &tuningBox, &tonicBox, &scaleBox })
+    for (auto* c : { &tuningBox, &tonicBox, &scaleBox, &namingBox })
         addAndMakeVisible (c);
     addAndMakeVisible (chordLabel);
 
@@ -66,7 +75,7 @@ MusicBox2Editor::MusicBox2Editor (MusicBox2Processor& p)
     refreshHeader();
 
     setResizable (true, true);
-    setResizeLimits (640, 480, 2400, 1600);
+    setResizeLimits (760, 480, 2400, 1600);
     setSize (processor.lastEditorWidth, processor.lastEditorHeight);
     startTimerHz (30);
 }
@@ -91,8 +100,20 @@ void MusicBox2Editor::timerCallback()
     }
 }
 
-void MusicBox2Editor::appStateChanged (mbox::AppState&, int)
+void MusicBox2Editor::appStateChanged (mbox::AppState&, int changes)
 {
+    if ((changes & mbox::AppState::notationChanged) != 0)
+    {
+        populateTonics();
+        // Widgets that only rebuild labels on specific changes still get fresh names.
+        std::function<void (juce::Component&)> repaintTree = [&repaintTree] (juce::Component& c)
+        {
+            c.repaint();
+            for (auto* child : c.getChildren())
+                repaintTree (*child);
+        };
+        repaintTree (tabs);
+    }
     refreshHeader();
 }
 
@@ -110,6 +131,8 @@ void MusicBox2Editor::refreshHeader()
 
     if (tonicBox.getNumItems() != tuning.divisions())
         populateTonics();
+
+    namingBox.setSelectedId (state.getNoteNaming() == theory::NoteNaming::Solfege ? 2 : 1, juce::dontSendNotification);
 
     int tuningIndex = -1;
     for (int i = 0; i < static_cast<int> (tuningPresets.size()); ++i)
@@ -156,6 +179,8 @@ void MusicBox2Editor::resized()
     tonicBox.setBounds (header.removeFromLeft (90));
     header.removeFromLeft (6);
     scaleBox.setBounds (header.removeFromLeft (170));
+    header.removeFromLeft (12);
+    namingBox.setBounds (header.removeFromLeft (110));
     chordLabel.setBounds (header);
 
     tabs.setBounds (area);

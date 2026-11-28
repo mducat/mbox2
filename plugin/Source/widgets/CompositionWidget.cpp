@@ -148,6 +148,8 @@ CompositionWidget::CompositionWidget (AppState& s) : Widget (s)
 
 void CompositionWidget::appStateChanged (AppState&, int changes)
 {
+    if ((changes & AppState::notationChanged) != 0 && (changes & ~AppState::notationChanged) == 0)
+        refreshScore(); // labels only: keep playing
     if ((changes & (AppState::progressionChanged | AppState::keyChanged | AppState::tuningChanged)) != 0)
     {
         stopPlayback(); // the scheduled notes no longer match the score

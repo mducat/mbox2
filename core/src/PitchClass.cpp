@@ -1,4 +1,5 @@
 #include "mbox/theory/PitchClass.h"
+#include "mbox/theory/NoteNaming.h"
 
 #include <bit>
 #include <cassert>
@@ -11,8 +12,18 @@ namespace mbox::theory
 
 namespace
 {
-    constexpr std::array<const char*, 12> kSharpNames { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
-    constexpr std::array<const char*, 12> kFlatNames  { "C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B" };
+    // Letter index (0 = C .. 6 = B) and accidental of each 12-TET pitch class.
+    constexpr std::array<int, 12> kSharpLetters { 0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6 };
+    constexpr std::array<int, 12> kFlatLetters  { 0, 1, 1, 2, 2, 3, 4, 4, 5, 5, 6, 6 };
+    constexpr std::array<int, 7>  kLetterPcs    { 0, 2, 4, 5, 7, 9, 11 };
+
+    std::string semitoneName (int pc, bool preferFlats)
+    {
+        const auto i = static_cast<std::size_t> (mod12 (pc));
+        const int letter = (preferFlats ? kFlatLetters : kSharpLetters)[i];
+        const int alter = static_cast<int> (i) - kLetterPcs[static_cast<std::size_t> (letter)];
+        return letterName (letter) + (alter > 0 ? "#" : alter < 0 ? "b" : "");
+    }
 
     // Cents of the just perfect fifth 3/2.
     constexpr double kJustFifthCents = 701.955000865;
@@ -81,15 +92,13 @@ PitchClass PitchClass::convertedTo (int newDivisions) const noexcept
 
 std::string PitchClass::name (bool preferFlats) const
 {
-    const auto& names = preferFlats ? kFlatNames : kSharpNames;
-
     if (divisions() == kDefaultDivisions)
-        return names[v];
+        return semitoneName (v, preferFlats);
 
     const double cents = equalCents();
     const int nearest = static_cast<int> (std::ceil (cents / 100.0 - 0.5)); // ties go down: "C+50"
     const int offset = static_cast<int> (std::lround (cents - nearest * 100.0));
-    std::string s = names[static_cast<std::size_t> (mod12 (nearest))];
+    std::string s = semitoneName (nearest, preferFlats);
     if (offset != 0)
         s += (offset > 0 ? "+" : "") + std::to_string (offset);
     return s;

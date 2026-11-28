@@ -31,7 +31,7 @@ private:
     mbox::AppState& state;
     std::array<std::uint64_t, 2> lastHeld {};
 
-    juce::ComboBox tuningBox, tonicBox, scaleBox;
+    juce::ComboBox tuningBox, tonicBox, scaleBox, namingBox;
     juce::Label chordLabel;
     juce::TabbedComponent tabs { juce::TabbedButtonBar::TabsAtTop };
     std::vector<mbox::theory::Tuning> tuningPresets;

@@ -129,7 +129,7 @@ void HarmonicSpectrumWidget::attachToEngine()
 
 void HarmonicSpectrumWidget::appStateChanged (AppState&, int changes)
 {
-    if ((changes & (AppState::tuningChanged | AppState::activeNotesChanged)) != 0)
+    if ((changes & (AppState::tuningChanged | AppState::activeNotesChanged | AppState::notationChanged)) != 0)
         theoryDirty = true;
 }
 
