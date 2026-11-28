@@ -3,6 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <mbox/theory/Harmony.h>
+#include <mbox/theory/Progressions.h>
 
 #include <functional>
 #include <vector>
@@ -17,6 +18,11 @@
       over it, to change its inversion (I, I6, I6/4...).
     - Chords listed in setSelection() are highlighted, so the map reflects the
       progression held in the shared state.
+    - "Mouvements": arrows from the hovered chord (or the last chord of the
+      progression) to the chords that usually follow it, by strength
+      (theory::motionStrength).
+    - "Enchaînement": a common progression (ii-V-I, cadences...) drawn as a
+      numbered path over the map, that can be played or added at once.
 */
 namespace mbox
 {
@@ -34,13 +40,20 @@ public:
     ~TonalMapComponent() override;
 
     /** Called when the user picks a chord (with the inversion shown on its cell). */
-    std::function<void (const mbox::theory::RomanChord&)> onChordChosen;
+    std::function<void (const theory::RomanChord&)> onChordChosen;
 
-    void setKey (const mbox::theory::Key& key);
-    const mbox::theory::Key& getKey() const noexcept { return key; }
+    /** "Ajouter" / "Écouter" of the progression picker. */
+    std::function<void (const std::vector<theory::RomanChord>&)> onPatternAdd, onPatternPlay;
+
+    void setKey (const theory::Key& key);
+    const theory::Key& getKey() const noexcept { return key; }
 
     /** Chords to highlight (e.g. the current progression). Inversion is ignored for matching. */
-    void setSelection (const std::vector<mbox::theory::RomanChord>& chords);
+    void setSelection (const std::vector<theory::RomanChord>& chords);
+
+    /** Width kept free at the right of the first toolbar row (for a host control). */
+    static constexpr int kToolbarReserve = 140;
+    static constexpr int kToolbarRowHeight = 32;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -48,9 +61,10 @@ public:
 private:
     class ChordCell;
     class Canvas;
+    class Overlay;
     struct Column
     {
-        mbox::theory::HarmonicFunction function;
+        theory::HarmonicFunction function;
         juce::Rectangle<int> bounds;
         std::vector<ChordCell*> cells;
     };
@@ -58,23 +72,42 @@ private:
     void rebuild();
     int layoutColumn (Column&); // returns the column's content bottom
     void paintCanvas (juce::Graphics&);
+    void paintOverlay (juce::Graphics&);
     void updateHighlights();
-    void chooseChord (const mbox::theory::RomanChord&);
+    void updateFocus();
+    void chooseChord (const theory::RomanChord&);
+    void setHoveredCell (ChordCell*);
+    void patternChanged();
 
-    mbox::theory::Key key { mbox::theory::PitchClass (0), mbox::theory::Mode::Major };
-    mbox::theory::HarmonyOptions options;
-    std::vector<mbox::theory::RomanChord> selection;
+    /** Cell showing a chord (any inversion; falls back to the triad when sevenths are hidden). */
+    ChordCell* findCell (const theory::RomanChord&) const;
+
+    /** Cells reached from `from`, one per chord (triad preferred to its seventh). */
+    std::vector<std::pair<ChordCell*, theory::MotionStrength>> motionsFrom (const theory::RomanChord& from) const;
+
+    int currentPatternIndex() const; // -1 = none
+    std::vector<theory::RomanChord> currentPattern() const;
+
+    theory::Key key { theory::PitchClass (0), theory::Mode::Major };
+    theory::HarmonyOptions options;
+    std::vector<theory::RomanChord> selection;
+    ChordCell* hoveredCell = nullptr;
 
     juce::Label keyLabel;
-    juce::ToggleButton seventhsToggle, secondaryToggle, borrowedToggle, chromaticToggle;
+    juce::TextButton seventhsToggle, secondaryToggle, borrowedToggle, chromaticToggle, motionsToggle;
+    juce::ComboBox patternBox;
+    juce::TextButton playPatternButton, addPatternButton;
+    juce::Rectangle<int> legendArea;
 
     // Columns live on a canvas inside a viewport, so long keys (many borrowed /
-    // applied chords) scroll instead of being squashed.
+    // applied chords) scroll instead of being squashed. The overlay draws the
+    // motion arrows above the cells.
     std::unique_ptr<Canvas> canvas;
+    std::unique_ptr<Overlay> overlay;
     juce::Viewport viewport;
     std::vector<std::unique_ptr<ChordCell>> cells;
     std::array<Column, 3> columns;
-    juce::Rectangle<int> arrowArea; // in canvas coordinates
+    juce::Rectangle<int> bannerArea; // in canvas coordinates
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TonalMapComponent)
 };

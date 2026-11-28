@@ -8,6 +8,7 @@ add_library(mbox_theory STATIC
     src/analysis/Waveform.cpp
     src/analysis/Interference.cpp
     src/Harmony.cpp
+    src/Progressions.cpp
     src/Spelling.cpp
     src/Voicing.cpp
     src/instrument/Keyboard.cpp
