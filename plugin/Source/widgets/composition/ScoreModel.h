@@ -23,6 +23,8 @@ struct ScoreChord
     // Tablature, in the *current* tuning (frets follow its steps).
     std::vector<int> tabClasses;
     std::optional<int> tabBass;
+
+    int beats = 4;            // duration in quarter-note beats: 1 = quarter, 2 = half, 3 = dotted half, 4 = whole, 8 = breve
 };
 
 struct ScoreInput
