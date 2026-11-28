@@ -27,7 +27,11 @@ namespace smufl
             case gClef:                 return 2.684f;
             case fClef:                 return 2.736f;
             case tabClef6String:        return 1.636f;
+            case noteheadDoubleWhole:   return 2.528f;
             case noteheadWhole:         return 1.688f;
+            case noteheadHalf:          return 1.18f;
+            case noteheadBlack:         return 1.18f;
+            case augmentationDot:       return 0.4f;
             case accidentalFlat:        return 0.904f;
             case accidentalNatural:     return 0.672f;
             case accidentalSharp:       return 0.996f;

@@ -28,6 +28,7 @@ namespace
         const juce::Identifier notes { "notes" };
         const juce::Identifier degree { "degree" };
         const juce::Identifier symbol { "symbol" };
+        const juce::Identifier beats { "beats" };
         const juce::Identifier manualNotes { "manualNotes" };
     } // namespace ids
 
@@ -137,6 +138,7 @@ ProgressionChord AppState::normalised (ProgressionChord c) const
         c.notes = c.chord.voicing (tuning.noteOf (c.chord.root(), 4));
     }
     sortUnique (c.notes);
+    c.beats = juce::jlimit (ProgressionChord::kMinBeats, ProgressionChord::kMaxBeats, c.beats);
 
     if (c.symbol.empty())
         c.symbol = c.chord.symbol();
@@ -351,6 +353,7 @@ juce::ValueTree AppState::toValueTree() const
         ct.setProperty (ids::notes, intsToString (c.notes), nullptr);
         ct.setProperty (ids::degree, juce::String (c.degree), nullptr);
         ct.setProperty (ids::symbol, juce::String (c.symbol), nullptr);
+        ct.setProperty (ids::beats, c.beats, nullptr);
         p.appendChild (ct, nullptr);
     }
     root.appendChild (p, nullptr);
@@ -404,7 +407,8 @@ void AppState::restoreFromValueTree (const juce::ValueTree& tree)
             ProgressionChord c { theory::Chord (theory::PitchClass (ct.getProperty (ids::root), n), *quality),
                                  intsFromString (ct.getProperty (ids::notes).toString()),
                                  ct.getProperty (ids::degree).toString().toStdString(),
-                                 ct.getProperty (ids::symbol).toString().toStdString() };
+                                 ct.getProperty (ids::symbol).toString().toStdString(),
+                                 static_cast<int> (ct.getProperty (ids::beats, ProgressionChord::kDefaultBeats)) };
             progression.push_back (normalised (std::move (c)));
         }
 

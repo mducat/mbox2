@@ -3,6 +3,7 @@
 #include "SmuflGlyphs.h"
 
 #include <cmath>
+#include <limits>
 
 namespace mbox::composition
 {
@@ -28,6 +29,22 @@ namespace
     // (the bass clef uses the same shapes two steps lower).
     constexpr int kSharpSteps[] { 8, 5, 9, 6, 3, 7, 4 };
     constexpr int kFlatSteps[]  { 4, 7, 3, 6, 2, 5, 1 };
+
+    constexpr int kBeatsPerBar = 4;
+
+    // Slot width in staff spaces: longer chords get more room, a whole note keeps the classic 11.
+    float slotWidthFor (int beats) noexcept { return 6.0f + 1.25f * static_cast<float> (juce::jlimit (1, 8, beats)); }
+
+    smufl::Glyph noteheadFor (int beats) noexcept
+    {
+        if (beats >= 8) return smufl::noteheadDoubleWhole;
+        if (beats >= 4) return smufl::noteheadWhole;
+        if (beats >= 2) return smufl::noteheadHalf;
+        return smufl::noteheadBlack;
+    }
+
+    bool hasStem (int beats) noexcept   { return beats < 4; }
+    bool isDotted (int beats) noexcept  { return beats == 3 || beats == 6; }
 
     juce::String chordSymbol (const std::vector<theory::SpelledPitchClass>& tones, const theory::Chord& chord, int inversion)
     {
@@ -88,6 +105,7 @@ ScoreComponent::ScoreComponent()
       fretboard (instrument::Fretboard::fromPreset (instrument::stringTunings::guitarStandard))
 {
     setOpaque (true);
+    setWantsKeyboardFocus (true);
 }
 
 void ScoreComponent::setInput (const ScoreInput& newInput)
@@ -145,10 +163,19 @@ void ScoreComponent::rebuild()
     engraved.clear();
     theory::KeyboardVoicer voicer;
     int previousPosition = -1;
+    contentWidth = 0.0f;
+    int elapsedBeats = 0;
 
     for (const auto& item : input.chords)
     {
         EngravedChord e;
+        e.beats = juce::jlimit (1, 8, item.beats);
+        e.x = contentWidth;
+        e.width = slotWidthFor (e.beats);
+        contentWidth += e.width;
+        elapsedBeats += e.beats;
+        e.barLineAfter = elapsedBeats % kBeatsPerBar == 0;
+
         e.tones = theory::spellChord (item.chord, input.key);
 
         std::vector<theory::SpelledNote> notes;
@@ -177,6 +204,8 @@ void ScoreComponent::rebuild()
         e.roman = juce::String::fromUTF8 (item.roman.c_str());
         engraved.push_back (std::move (e));
     }
+    if (! engraved.empty())
+        engraved.back().barLineAfter = true;
 
     setSize (preferredWidth(), preferredHeight());
     repaint();
@@ -203,8 +232,7 @@ ScoreComponent::Metrics ScoreComponent::metrics() const
     m.keySigX = m.clefX + 3.6f * m.sp;
     const int numAccidentals = std::abs (input.key.signature().fifths());
     m.firstBarX = m.keySigX + static_cast<float> (numAccidentals) * 1.1f * m.sp + 1.0f * m.sp;
-    m.barWidth = 11.0f * m.sp;
-    m.right = m.firstBarX + m.barWidth * static_cast<float> (juce::jmax<std::size_t> (1, engraved.size()));
+    m.right = m.firstBarX + juce::jmax (slotWidthFor (kBeatsPerBar), contentWidth) * m.sp;
     return m;
 }
 
@@ -214,10 +242,13 @@ int ScoreComponent::preferredWidth() const  { return static_cast<int> (std::ceil
 int ScoreComponent::barAt (juce::Point<float> p) const
 {
     const auto m = metrics();
-    if (p.x < m.firstBarX || p.x >= m.right)
-        return -1;
-    const int i = static_cast<int> ((p.x - m.firstBarX) / m.barWidth);
-    return i < static_cast<int> (engraved.size()) ? i : -1;
+    for (std::size_t i = 0; i < engraved.size(); ++i)
+    {
+        const float x = m.slotX (engraved[i]);
+        if (p.x >= x && p.x < x + m.slotWidth (engraved[i]))
+            return static_cast<int> (i);
+    }
+    return -1;
 }
 
 void ScoreComponent::mouseMove (const juce::MouseEvent& e)
@@ -237,10 +268,42 @@ void ScoreComponent::mouseExit (const juce::MouseEvent&)
 
 void ScoreComponent::mouseDown (const juce::MouseEvent& e)
 {
+    grabKeyboardFocus();
     selectedBar = barAt (e.position);
     repaint();
-    if (selectedBar >= 0 && onChordClicked)
+    if (selectedBar < 0)
+        return;
+    if (e.mods.isPopupMenu())
+    {
+        if (onChordMenuRequested)
+            onChordMenuRequested (selectedBar);
+    }
+    else if (onChordClicked)
+    {
         onChordClicked (selectedBar);
+    }
+}
+
+bool ScoreComponent::keyPressed (const juce::KeyPress& key)
+{
+    if (! juce::isPositiveAndBelow (selectedBar, static_cast<int> (engraved.size())))
+        return false;
+
+    if (key == juce::KeyPress::deleteKey || key == juce::KeyPress::backspaceKey)
+    {
+        if (onDeleteRequested)
+            onDeleteRequested (selectedBar);
+        return true;
+    }
+
+    const auto c = key.getTextCharacter();
+    if ((c >= '1' && c <= '4') || c == '8')
+    {
+        if (onBeatsRequested)
+            onBeatsRequested (selectedBar, static_cast<int> (c - '0'));
+        return true;
+    }
+    return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -271,27 +334,46 @@ void ScoreComponent::drawKeySignature (juce::Graphics& g, const Metrics& m, floa
 }
 
 void ScoreComponent::drawNotes (juce::Graphics& g, const Metrics& m, float x, float staffBottom, int bottomLineIndex,
-                                const std::vector<theory::SpelledNote>& notes) const
+                                const std::vector<theory::SpelledNote>& notes, int beats) const
 {
+    if (notes.empty())
+        return;
+
     auto& font = SmuflFont::instance();
-    const float headWidth = smufl::advanceOf (smufl::noteheadWhole) * m.sp;
+    const auto head = noteheadFor (beats);
+    const float headWidth = smufl::advanceOf (head) * m.sp;
     const auto sig = input.key.signature();
 
     struct Placed { int step; int alter; bool showAccidental; float headX; bool shifted; };
     std::vector<Placed> placed;
-
     for (const auto& n : notes)
-    {
-        Placed p { n.diatonicIndex() - bottomLineIndex, n.pitch.alter,
-                   n.pitch.alter != sig.alterationOf (n.pitch.letter), x, false };
+        placed.push_back ({ n.diatonicIndex() - bottomLineIndex, n.pitch.alter,
+                            n.pitch.alter != sig.alterationOf (n.pitch.letter), x, false });
 
-        // Seconds can't share a column: the upper note moves to the right of the stem side.
-        if (! placed.empty() && p.step - placed.back().step == 1 && ! placed.back().shifted)
-        {
-            p.headX = x + headWidth;
-            p.shifted = true;
-        }
-        placed.push_back (p);
+    // Stem away from the note farthest from the middle line (step 4).
+    const bool stem = hasStem (beats);
+    const int lowest = placed.front().step, highest = placed.back().step;
+    const bool stemUp = (4 - lowest) >= (highest - 4);
+
+    // Seconds can't share a column: with the stem up (or no stem) the upper note moves to the
+    // right of the stem, with the stem down the lower note moves to its left.
+    if (stem && ! stemUp)
+    {
+        for (std::size_t i = placed.size() - 1; i-- > 0;)
+            if (placed[i + 1].step - placed[i].step == 1 && ! placed[i + 1].shifted)
+            {
+                placed[i].headX = x - headWidth;
+                placed[i].shifted = true;
+            }
+    }
+    else
+    {
+        for (std::size_t i = 1; i < placed.size(); ++i)
+            if (placed[i].step - placed[i - 1].step == 1 && ! placed[i - 1].shifted)
+            {
+                placed[i].headX = x + headWidth;
+                placed[i].shifted = true;
+            }
     }
 
     auto yOf = [&] (int step) { return staffBottom - static_cast<float> (step) * m.sp * 0.5f; };
@@ -312,9 +394,50 @@ void ScoreComponent::drawNotes (juce::Graphics& g, const Metrics& m, float x, fl
     // Noteheads
     g.setColour (colours::ink);
     for (const auto& p : placed)
-        font.draw (g, smufl::noteheadWhole, p.headX, yOf (p.step), m.sp);
+        font.draw (g, head, p.headX, yOf (p.step), m.sp);
+
+    // Stem: from the far note to an octave (3.5 spaces) past the other end, at least to the middle line.
+    if (stem)
+    {
+        const float thickness = juce::jmax (1.0f, 0.12f * m.sp);
+        if (stemUp)
+        {
+            const float sx = x + headWidth - thickness;
+            const float y0 = yOf (lowest) - 0.17f * m.sp;
+            const float y1 = juce::jmin (yOf (highest) - 3.5f * m.sp, yOf (4));
+            g.fillRect (juce::Rectangle<float> (sx, y1, thickness, y0 - y1));
+        }
+        else
+        {
+            const float y0 = yOf (highest) + 0.17f * m.sp;
+            const float y1 = juce::jmax (yOf (lowest) + 3.5f * m.sp, yOf (4));
+            g.fillRect (juce::Rectangle<float> (x, y0, thickness, y1 - y0));
+        }
+    }
+
+    // Augmentation dots, right of the rightmost head, in the space (a note on a line dots the space above).
+    if (isDotted (beats))
+    {
+        float rightmost = x + headWidth;
+        for (const auto& p : placed)
+            rightmost = juce::jmax (rightmost, p.headX + headWidth);
+        const float dx = rightmost + 0.35f * m.sp;
+        int lastDotStep = std::numeric_limits<int>::min();
+        for (const auto& p : placed)
+        {
+            const int dotStep = p.step % 2 == 0 ? p.step + 1 : p.step;
+            if (dotStep == lastDotStep)
+                continue;
+            lastDotStep = dotStep;
+            font.draw (g, smufl::augmentationDot, dx, yOf (dotStep), m.sp);
+        }
+    }
 
     // Accidentals, stacked in columns from the top so that they never collide.
+    float leftmost = x;
+    for (const auto& p : placed)
+        leftmost = juce::jmin (leftmost, p.headX);
+
     std::vector<std::pair<int, int>> columns; // (column, step)
     for (auto it = placed.rbegin(); it != placed.rend(); ++it)
     {
@@ -336,7 +459,7 @@ void ScoreComponent::drawNotes (juce::Graphics& g, const Metrics& m, float x, fl
         columns.emplace_back (column, it->step);
 
         const auto glyph = smufl::accidentalFor (it->alter);
-        const float ax = x - 0.25f * m.sp - static_cast<float> (column + 1) * 1.25f * m.sp
+        const float ax = leftmost - 0.25f * m.sp - static_cast<float> (column + 1) * 1.25f * m.sp
                          - (glyph == smufl::accidentalDoubleFlat ? 0.6f * m.sp : 0.0f);
         font.draw (g, glyph, ax, yOf (it->step), m.sp);
     }
@@ -366,9 +489,11 @@ void ScoreComponent::drawTablature (juce::Graphics& g, const Metrics& m) const
     g.setColour (colours::lines);
     const float barThickness = juce::jmax (1.0f, 0.16f * m.sp);
     g.fillRect (juce::Rectangle<float> (m.staffLeft, m.tabTop, barThickness, tabBottom - m.tabTop));
-    for (std::size_t i = 1; i <= engraved.size(); ++i)
+    for (const auto& e : engraved)
     {
-        const float bx = m.firstBarX + static_cast<float> (i) * m.barWidth;
+        if (! e.barLineAfter)
+            continue;
+        const float bx = m.slotX (e) + m.slotWidth (e);
         g.fillRect (juce::Rectangle<float> (bx - barThickness, m.tabTop, barThickness, tabBottom - m.tabTop));
     }
 
@@ -378,7 +503,7 @@ void ScoreComponent::drawTablature (juce::Graphics& g, const Metrics& m) const
 
     for (std::size_t i = 0; i < engraved.size(); ++i)
     {
-        const float cx = m.firstBarX + static_cast<float> (i) * m.barWidth + headCentre;
+        const float cx = m.slotX (engraved[i]) + headCentre;
         const auto& fingering = engraved[i].fingering;
 
         if (! fingering)
@@ -430,10 +555,12 @@ void ScoreComponent::paint (juce::Graphics& g)
     g.setColour (colours::lines);
     const float thin = juce::jmax (1.0f, 0.16f * m.sp);
     g.fillRect (juce::Rectangle<float> (m.staffLeft, m.trebleTop, thin, bassBottom - m.trebleTop));
-    for (std::size_t i = 1; i <= engraved.size(); ++i)
+    for (std::size_t i = 0; i < engraved.size(); ++i)
     {
-        const float bx = m.firstBarX + static_cast<float> (i) * m.barWidth;
-        const bool last = i == engraved.size();
+        if (! engraved[i].barLineAfter)
+            continue;
+        const float bx = m.slotX (engraved[i]) + m.slotWidth (engraved[i]);
+        const bool last = i + 1 == engraved.size();
         if (last)
         {
             g.fillRect (juce::Rectangle<float> (bx - 0.5f * m.sp, m.trebleTop, 0.5f * m.sp, bassBottom - m.trebleTop));
@@ -456,15 +583,15 @@ void ScoreComponent::paint (juce::Graphics& g)
     for (std::size_t i = 0; i < engraved.size(); ++i)
     {
         const auto& e = engraved[i];
-        const float barX = m.firstBarX + static_cast<float> (i) * m.barWidth;
+        const float barX = m.slotX (e);
         const float noteX = barX + 4.0f * m.sp;
 
-        drawNotes (g, m, noteX, trebleBottom, kTrebleBottomLine, e.trebleNotes);
-        drawNotes (g, m, noteX, bassBottom, kBassBottomLine, e.bassNotes);
+        drawNotes (g, m, noteX, trebleBottom, kTrebleBottomLine, e.trebleNotes, e.beats);
+        drawNotes (g, m, noteX, bassBottom, kBassBottomLine, e.bassNotes, e.beats);
 
         const auto labelBox = [&] (float baseline, float size)
         {
-            return juce::Rectangle<float> (barX, baseline - size, m.barWidth, size * 1.3f);
+            return juce::Rectangle<float> (barX, baseline - size, m.slotWidth (e), size * 1.3f);
         };
 
         g.setColour (colours::accent);
@@ -482,12 +609,13 @@ void ScoreComponent::paint (juce::Graphics& g)
     // Hover / selection highlight, drawn over the content
     for (const auto& [bar, alpha] : { std::pair { hoveredBar, 0.06f }, std::pair { selectedBar, 0.14f } })
     {
-        if (bar < 0)
+        if (! juce::isPositiveAndBelow (bar, static_cast<int> (engraved.size())))
             continue;
-        const float bx = m.firstBarX + static_cast<float> (bar) * m.barWidth;
+        const auto& e = engraved[static_cast<std::size_t> (bar)];
+        const float bx = m.slotX (e);
         g.setColour (colours::accent.withAlpha (alpha));
         g.fillRoundedRectangle (juce::Rectangle<float> (bx + 0.2f * m.sp, m.trebleTop - 4.5f * m.sp,
-                                                        m.barWidth - 0.4f * m.sp, systemBottom - m.trebleTop + 5.5f * m.sp),
+                                                        m.slotWidth (e) - 0.4f * m.sp, systemBottom - m.trebleTop + 5.5f * m.sp),
                                 0.6f * m.sp);
     }
 }
