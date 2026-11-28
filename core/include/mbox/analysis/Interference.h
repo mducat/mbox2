@@ -46,6 +46,19 @@ std::vector<BeatingPair> findBeatingPairs (std::span<const Partial> partials,
 double pairSumAmplitude (const BeatingPair& pair, double t) noexcept;
 
 /**
+    Amplitude envelope of the sum of all `partials` (all starting in phase,
+    sine phase 0) over durationSeconds, at `points` evenly spaced times: the
+    peak |sum| over a window starting at each time. Use about one period of
+    the lowest note as the window, so the peak of every cycle is caught.
+    Its maximum possible value is the sum of the amplitudes (everything in
+    phase).
+*/
+std::vector<float> sumAmplitudeEnvelope (std::span<const Partial> partials,
+                                         double durationSeconds,
+                                         double windowSeconds,
+                                         int points);
+
+/**
     A duration that shows `cycles` cycles of the slowest of these beats,
     clamped to [minSeconds, maxSeconds]; minSeconds when there is no beat.
 */

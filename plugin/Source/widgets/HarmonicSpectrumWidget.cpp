@@ -170,7 +170,7 @@ void HarmonicSpectrumWidget::resized()
     interferenceArea = {};
     if (interferenceButton.getToggleState())
     {
-        interferenceArea = area.removeFromBottom (stripHeight).withTrimmedLeft (44);
+        interferenceArea = area.removeFromBottom (juce::jlimit (80, 200, area.getHeight() / 3)).withTrimmedLeft (44);
         area.removeFromBottom (6);
     }
 
@@ -319,6 +319,22 @@ void HarmonicSpectrumWidget::updateTheory()
     // Interference: close partials of different notes, which beat.
     beatingPairs    = analysis::findBeatingPairs (partials, 6);
     beatViewSeconds = analysis::beatViewDuration (beatingPairs, 2.0, 0.25, 2.0);
+
+    // Amplitude of the sum of all the waves (window = one period of the lowest note).
+    sumAmplitudeMax = 0.0f;
+    float sumSquares = 0.0f;
+    for (const auto& p : partials)
+    {
+        sumAmplitudeMax += static_cast<float> (p.amplitude);
+        sumSquares      += static_cast<float> (p.amplitude * p.amplitude);
+    }
+    sumAmplitudeNeutral = std::sqrt (sumSquares);
+    const auto lowestHz = fundamentals.empty() ? 0.0 : *std::min_element (fundamentals.begin(), fundamentals.end());
+    // One period of the whole chord (its virtual fundamental) catches every peak
+    // of the combined waveform; fall back to two periods of the lowest note.
+    const auto chordPeriod = virtualRoot ? juce::jmin (0.05, 1.0 / *virtualRoot) : (lowestHz > 0.0 ? 2.0 / lowestHz : 0.0);
+    sumEnvelope = chordPeriod > 0.0 ? analysis::sumAmplitudeEnvelope (partials, beatViewSeconds, chordPeriod, 600)
+                                    : std::vector<float> {};
     interferenceStartMs = juce::Time::getMillisecondCounterHiRes();
 }
 
@@ -577,32 +593,117 @@ void HarmonicSpectrumWidget::paintInterference (juce::Graphics& g, juce::Rectang
         g.drawText ("rouge = destructif", legend, juce::Justification::centredRight);
     }
     g.setColour (colours::textDim);
-    g.drawText (utf8 ("Interf\xc3\xa9rences entre partiels proches (en phase au d\xc3\xa9part) : amplitude de leur somme"),
+    g.drawText (utf8 ("Interf\xc3\xa9rences (ondes en phase au d\xc3\xa9part) : amplitude de la somme au fil du temps"),
                 header, juce::Justification::centredLeft);
 
-    if (beatingPairs.empty())
+    if (fundamentals.empty() || sumEnvelope.size() < 2)
     {
         g.setColour (colours::textDim);
-        g.drawText (fundamentals.size() < 2 ? utf8 ("Jouez au moins deux notes pour voir leurs partiels interf\xc3\xa9rer.")
-                                            : utf8 ("Aucun battement audible : les partiels proches co\xc3\xaf" "ncident exactement ou sont trop \xc3\xa9" "cart\xc3\xa9s."),
-                    content, juce::Justification::centred);
+        g.drawText (utf8 ("Jouez des notes pour voir leurs ondes interf\xc3\xa9rer."), content, juce::Justification::centred);
         return;
     }
 
+    constexpr float valueWidth = 64.0f;
     const auto labelWidth = juce::jmin (210.0f, content.getWidth() * 0.3f);
-    const auto laneCount  = juce::jlimit (1, static_cast<int> (beatingPairs.size()), static_cast<int> (content.getHeight() / 18.0f));
-    const auto laneHeight = content.getHeight() / static_cast<float> (laneCount);
     const auto plotX      = content.getX() + labelWidth;
-    const auto plotWidth  = content.getRight() - plotX;
+    const auto plotWidth  = content.getRight() - valueWidth - plotX;
     const auto width      = juce::jmax (1, static_cast<int> (plotWidth));
 
-    for (int i = 0; i < laneCount; ++i)
+    const auto elapsed  = (juce::Time::getMillisecondCounterHiRes() - interferenceStartMs) / 1000.0;
+    const auto cursorT  = std::fmod (elapsed, beatViewSeconds);
+    const auto cursorX  = plotX + static_cast<float> (cursorT / beatViewSeconds) * plotWidth;
+
+    // Lanes: the whole sum first (taller), then one per beating pair.
+    const auto pairSlots  = beatingPairs.empty() ? 1 : static_cast<int> (beatingPairs.size());
+    const auto minLane    = 16.0f;
+    const auto maxPairs   = juce::jmax (0, static_cast<int> ((content.getHeight() - 2.0f * minLane) / minLane));
+    const auto pairLanes  = juce::jmin (pairSlots, maxPairs);
+    const auto unit       = content.getHeight() / (2.0f + static_cast<float> (pairLanes));
+
+    // Draws +/- envelope (normalised to its maximum) coloured against a neutral level.
+    const auto drawBand = [&] (juce::Rectangle<float> lane, float neutral, float low, auto&& envelopeAt)
+    {
+        const auto cy   = lane.getCentreY();
+        const auto half = juce::jmax (2.0f, lane.getHeight() * 0.5f - 1.5f);
+
+        for (int px = 0; px < width; ++px)
+        {
+            const auto env = juce::jlimit (0.0f, 1.0f, envelopeAt (beatViewSeconds * px / width));
+            const auto strength = env >= neutral ? (env - neutral) / juce::jmax (1e-6f, 1.0f - neutral)
+                                                 : (neutral - env) / juce::jmax (1e-6f, neutral - low);
+            g.setColour ((env >= neutral ? kConstructive : kDestructive).withAlpha (0.25f + 0.75f * juce::jlimit (0.0f, 1.0f, strength)));
+            g.drawVerticalLine (juce::roundToInt (plotX + static_cast<float> (px)), cy - env * half, cy + env * half);
+        }
+
+        g.setColour (colours::textDim.withAlpha (0.7f));
+        for (const auto y : { cy - neutral * half, cy + neutral * half })
+        {
+            juce::Path ref;
+            ref.startNewSubPath (plotX, y);
+            ref.lineTo (plotX + plotWidth, y);
+            const float dashes[] = { 3.0f, 3.0f };
+            juce::PathStrokeType (1.0f).createDashedStroke (ref, ref, dashes, 2);
+            g.fillPath (ref);
+        }
+    };
+
+    // Value at the cursor, in the same units as the partials (fundamental of a note = 1).
+    const auto drawValue = [&] (juce::Rectangle<float> lane, float value, float neutral, bool bold)
+    {
+        auto box = juce::Rectangle<float> (lane.getRight() - valueWidth, lane.getY(), valueWidth, lane.getHeight());
+        g.setColour (value >= neutral ? kConstructive : kDestructive);
+        g.setFont (juce::FontOptions (bold ? 13.0f : 11.0f, bold ? juce::Font::bold : juce::Font::plain));
+        g.drawText ("A = " + juce::String (value, 2), box, juce::Justification::centredRight);
+        g.setFont (juce::FontOptions (11.0f));
+    };
+
+    // -- Sum of all the waves ------------------------------------------------
+    {
+        auto lane  = juce::Rectangle<float> (content.getX(), content.getY(), content.getWidth(), 2.0f * unit).reduced (0.0f, 1.0f);
+        auto label = lane.withWidth (labelWidth);
+
+        g.setColour (colours::text);
+        g.setFont (juce::FontOptions (12.0f, juce::Font::bold));
+        g.drawText (utf8 ("Somme de toutes les ondes"), label.removeFromTop (label.getHeight() * 0.5f), juce::Justification::bottomLeft);
+        g.setFont (juce::FontOptions (11.0f));
+        g.setColour (colours::textDim);
+        g.drawText (utf8 ("max possible ") + juce::String (sumAmplitudeMax, 2), label, juce::Justification::topLeft);
+
+        // Scaled to what the envelope actually reaches (the theoretical max,
+        // everything in phase, is printed in the label).
+        const auto maxAmp  = juce::jmax (1e-6f, 1.1f * juce::jmax (sumAmplitudeNeutral, *std::max_element (sumEnvelope.begin(), sumEnvelope.end())));
+        const auto neutral = sumAmplitudeNeutral / maxAmp;
+        const auto envAt   = [&] (double t)
+        {
+            const auto pos  = static_cast<float> (t / beatViewSeconds) * static_cast<float> (sumEnvelope.size() - 1);
+            const auto i0   = juce::jlimit<std::size_t> (0, sumEnvelope.size() - 1, static_cast<std::size_t> (pos));
+            const auto i1   = juce::jmin (i0 + 1, sumEnvelope.size() - 1);
+            const auto frac = pos - static_cast<float> (i0);
+            return sumEnvelope[i0] * (1.0f - frac) + sumEnvelope[i1] * frac;
+        };
+        drawBand (lane, neutral, 0.0f, [&] (double t) { return envAt (t) / maxAmp; });
+        drawValue (lane, envAt (cursorT), sumAmplitudeNeutral, true);
+
+        g.setColour (kGrid);
+        g.drawHorizontalLine (juce::roundToInt (lane.getBottom() + 1.0f), content.getX(), content.getRight());
+    }
+
+    // -- Beating pairs ---------------------------------------------------------
+    const auto pairsTop = content.getY() + 2.0f * unit;
+    if (beatingPairs.empty())
+    {
+        g.setColour (colours::textDim);
+        g.drawText (fundamentals.size() < 2 ? utf8 ("Jouez au moins deux notes pour voir des battements.")
+                                            : utf8 ("Aucun battement audible : les partiels proches co\xc3\xaf" "ncident exactement ou sont trop \xc3\xa9" "cart\xc3\xa9s."),
+                    juce::Rectangle<float> (content.getX(), pairsTop, content.getWidth(), unit), juce::Justification::centredLeft);
+    }
+
+    for (int i = 0; i < pairLanes && ! beatingPairs.empty(); ++i)
     {
         const auto& pair = beatingPairs[static_cast<std::size_t> (i)];
-        auto lane  = juce::Rectangle<float> (content.getX(), content.getY() + laneHeight * static_cast<float> (i), content.getWidth(), laneHeight);
-        auto label = lane.removeFromLeft (labelWidth).reduced (0.0f, 1.0f);
+        auto lane  = juce::Rectangle<float> (content.getX(), pairsTop + unit * static_cast<float> (i), content.getWidth(), unit);
+        auto label = lane.withWidth (labelWidth).reduced (0.0f, 1.0f);
 
-        // Label: which partials, and how fast they beat.
         g.setColour (sourceColour (pair.a.source));
         g.fillRect (label.removeFromLeft (6.0f).withSizeKeepingCentre (6.0f, 6.0f));
         label.removeFromLeft (2.0f);
@@ -614,45 +715,21 @@ void HarmonicSpectrumWidget::paintInterference (juce::Graphics& g, juce::Rectang
         g.setColour (colours::textDim);
         g.drawText (juce::String (pair.beatHz, pair.beatHz < 10.0 ? 2 : 1) + " Hz ", label, juce::Justification::centredRight);
 
-        // Band: +/- amplitude of the sum, normalised to the fully constructive a1 + a2.
-        const auto sumMax  = pair.a.amplitude + pair.b.amplitude;
-        const auto neutral = static_cast<float> (std::sqrt (pair.a.amplitude * pair.a.amplitude + pair.b.amplitude * pair.b.amplitude) / sumMax);
-        const auto low     = static_cast<float> (std::abs (pair.a.amplitude - pair.b.amplitude) / sumMax);
-        const auto cy      = lane.getCentreY();
-        const auto half    = juce::jmax (2.0f, lane.getHeight() * 0.5f - 1.5f);
-
-        for (int px = 0; px < width; ++px)
-        {
-            const auto t   = beatViewSeconds * px / width;
-            const auto env = static_cast<float> (analysis::pairSumAmplitude (pair, t) / sumMax);
-            const auto strength = env >= neutral ? (env - neutral) / juce::jmax (1e-6f, 1.0f - neutral)
-                                                 : (neutral - env) / juce::jmax (1e-6f, neutral - low);
-            g.setColour ((env >= neutral ? kConstructive : kDestructive).withAlpha (0.25f + 0.75f * strength));
-            g.drawVerticalLine (juce::roundToInt (plotX + static_cast<float> (px)), cy - env * half, cy + env * half);
-        }
-
-        // "No net interference" level (the two partials in quadrature).
-        g.setColour (colours::textDim.withAlpha (0.7f));
-        for (const auto y : { cy - neutral * half, cy + neutral * half })
-        {
-            juce::Path ref;
-            ref.startNewSubPath (plotX, y);
-            ref.lineTo (plotX + plotWidth, y);
-            const float dashes[] = { 3.0f, 3.0f };
-            juce::PathStrokeType (1.0f).createDashedStroke (ref, ref, dashes, 2);
-            g.fillPath (ref);
-        }
+        const auto sumMax  = static_cast<float> (pair.a.amplitude + pair.b.amplitude);
+        const auto neutralAmp = static_cast<float> (std::sqrt (pair.a.amplitude * pair.a.amplitude + pair.b.amplitude * pair.b.amplitude));
+        const auto low     = static_cast<float> (std::abs (pair.a.amplitude - pair.b.amplitude)) / sumMax;
+        drawBand (lane, neutralAmp / sumMax, low, [&] (double t) { return static_cast<float> (analysis::pairSumAmplitude (pair, t)) / sumMax; });
+        drawValue (lane, static_cast<float> (analysis::pairSumAmplitude (pair, cursorT)), neutralAmp, false);
     }
 
     // Cursor following the beats in real time while the chord is held.
-    const auto elapsed = (juce::Time::getMillisecondCounterHiRes() - interferenceStartMs) / 1000.0;
-    const auto cursorX = plotX + static_cast<float> (std::fmod (elapsed, beatViewSeconds) / beatViewSeconds) * plotWidth;
     g.setColour (juce::Colours::white.withAlpha (0.8f));
     g.drawVerticalLine (juce::roundToInt (cursorX), content.getY(), content.getBottom());
 
     // Time axis
     g.setColour (colours::textDim);
     footer.removeFromLeft (labelWidth);
+    footer.removeFromRight (valueWidth);
     g.drawText ("0", footer, juce::Justification::centredLeft);
     g.drawText (beatViewSeconds >= 1.0 ? juce::String (beatViewSeconds, 1) + " s"
                                        : juce::String (juce::roundToInt (beatViewSeconds * 1000.0)) + " ms",

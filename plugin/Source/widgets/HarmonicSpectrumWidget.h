@@ -90,6 +90,9 @@ private:
     std::vector<mbox::analysis::SpectralPeak> peaks;
     std::vector<mbox::analysis::BeatingPair> beatingPairs;
     double beatViewSeconds = 0.25;
+    std::vector<float> sumEnvelope;      // peak |sum of all partials| over time
+    float sumAmplitudeMax = 0.0f;        // all partials in phase (sum of amplitudes)
+    float sumAmplitudeNeutral = 0.0f;    // typical peak without net interference (sqrt of the sum of a^2)
     double interferenceStartMs = 0.0; // when the current chord started, for the moving cursor
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (HarmonicSpectrumWidget)
