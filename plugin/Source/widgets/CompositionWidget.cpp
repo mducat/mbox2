@@ -1,5 +1,7 @@
 #include "CompositionWidget.h"
 
+#include <algorithm>
+
 namespace mbox
 {
 
@@ -26,6 +28,11 @@ namespace
         const int step = note - octave * divisions;
         return octave * 12 + theory::edo::convert (step, divisions, theory::kDefaultDivisions);
     }
+
+    struct DurationChoice { int beats; const char* label; };
+    constexpr DurationChoice kDurations[] {
+        { 1, "1 temps" }, { 2, "2 temps" }, { 3, "3 temps" }, { 4, "1 mesure" }, { 8, "2 mesures" },
+    };
 } // namespace
 
 CompositionWidget::CompositionWidget (AppState& s) : Widget (s)
@@ -85,7 +92,7 @@ CompositionWidget::CompositionWidget (AppState& s) : Widget (s)
     tempoSlider.setValue (90.0, juce::dontSendNotification);
     tempoSlider.setTextValueSuffix (" BPM");
     tempoSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 70, 22);
-    tempoSlider.setTooltip (juce::String::fromUTF8 ("Une mesure de 4 temps par accord"));
+    tempoSlider.setTooltip (juce::String::fromUTF8 ("Noires par minute (mesures à 4 temps)"));
     addAndMakeVisible (tempoSlider);
 
     loopToggle.setColour (juce::ToggleButton::textColourId, colours::text);
@@ -102,6 +109,24 @@ CompositionWidget::CompositionWidget (AppState& s) : Widget (s)
     addAndMakeVisible (previousVoicing);
     addAndMakeVisible (nextVoicing);
 
+    durationLabel.setText (juce::String::fromUTF8 ("Durée"), juce::dontSendNotification);
+    durationLabel.setColour (juce::Label::textColourId, colours::textDim);
+    durationLabel.setJustificationType (juce::Justification::centredRight);
+    addAndMakeVisible (durationLabel);
+    for (const auto& d : kDurations)
+        durationBox.addItem (juce::String::fromUTF8 (d.label), d.beats);
+    durationBox.setTooltip (juce::String::fromUTF8 ("Durée de l'accord sélectionné (touches 1 à 4, 8)"));
+    durationBox.onChange = [this]
+    {
+        if (const int beats = durationBox.getSelectedId(); beats > 0)
+            setChordBeats (state.getSelectedChordIndex(), beats);
+    };
+    addAndMakeVisible (durationBox);
+
+    deleteButton.setTooltip (juce::String::fromUTF8 ("Supprime l'accord sélectionné (Suppr)"));
+    deleteButton.onClick = [this] { deleteChord (state.getSelectedChordIndex()); };
+    addAndMakeVisible (deleteButton);
+
     score.onChordClicked = [this] (int index)
     {
         state.setSelectedChordIndex (index);
@@ -109,12 +134,16 @@ CompositionWidget::CompositionWidget (AppState& s) : Widget (s)
         if (! playing && juce::isPositiveAndBelow (index, static_cast<int> (state.getProgression().size())))
             playNotes (*this, state, state.getProgression()[static_cast<std::size_t> (index)].notes, std::nullopt, 0.75f, 0.0, 2.0);
     };
+    score.onChordMenuRequested = [this] (int index) { showChordMenu (index); };
+    score.onDeleteRequested = [this] (int index) { deleteChord (index); };
+    score.onBeatsRequested = [this] (int index, int beats) { setChordBeats (index, beats); };
     viewport.setViewedComponent (&score, false);
     viewport.setScrollBarsShown (false, true);
     addAndMakeVisible (viewport);
 
     refreshScore();
     updateVoicingControls();
+    updateEditControls();
 }
 
 void CompositionWidget::appStateChanged (AppState&, int changes)
@@ -129,7 +158,69 @@ void CompositionWidget::appStateChanged (AppState&, int changes)
     if ((changes & AppState::selectionChanged) != 0)
         score.setSelectedIndex (state.getSelectedChordIndex());
     if ((changes & (AppState::progressionChanged | AppState::selectionChanged | AppState::tuningChanged)) != 0)
+    {
         updateVoicingControls();
+        updateEditControls();
+    }
+}
+
+void CompositionWidget::updateEditControls()
+{
+    const auto* chord = state.getSelectedChord();
+    deleteButton.setEnabled (chord != nullptr);
+    durationBox.setEnabled (chord != nullptr);
+    durationLabel.setEnabled (chord != nullptr);
+
+    if (chord == nullptr)
+        durationBox.setSelectedId (0, juce::dontSendNotification);
+    else if (durationBox.indexOfItemId (chord->beats) >= 0)
+        durationBox.setSelectedId (chord->beats, juce::dontSendNotification);
+    else
+        durationBox.setText (juce::String (chord->beats) + " temps", juce::dontSendNotification);
+}
+
+void CompositionWidget::setChordBeats (int index, int beats)
+{
+    const auto& progression = state.getProgression();
+    if (! juce::isPositiveAndBelow (index, static_cast<int> (progression.size())))
+        return;
+
+    auto chord = progression[static_cast<std::size_t> (index)];
+    if (chord.beats == beats)
+        return;
+    chord.beats = beats;
+    state.replaceChord (index, chord);
+}
+
+void CompositionWidget::deleteChord (int index)
+{
+    const int size = static_cast<int> (state.getProgression().size());
+    if (! juce::isPositiveAndBelow (index, size))
+        return;
+
+    state.removeChord (index);
+    // Keep a selection so that several chords can be deleted in a row.
+    if (size > 1)
+        state.setSelectedChordIndex (juce::jmin (index, size - 2));
+}
+
+void CompositionWidget::showChordMenu (int index)
+{
+    const auto& progression = state.getProgression();
+    if (! juce::isPositiveAndBelow (index, static_cast<int> (progression.size())))
+        return;
+
+    state.setSelectedChordIndex (index);
+    const int current = progression[static_cast<std::size_t> (index)].beats;
+    juce::PopupMenu menu;
+    menu.addSectionHeader (juce::String::fromUTF8 ("Durée"));
+    for (const auto& d : kDurations)
+        menu.addItem (juce::String::fromUTF8 (d.label), true, d.beats == current,
+                      [this, index, beats = d.beats] { setChordBeats (index, beats); });
+    menu.addSeparator();
+    menu.addItem (juce::String::fromUTF8 ("Supprimer l'accord"), [this, index] { deleteChord (index); });
+
+    menu.showMenuAsync (juce::PopupMenu::Options().withMousePosition());
 }
 
 void CompositionWidget::updateVoicingControls()
@@ -188,9 +279,9 @@ void CompositionWidget::cycleVoicing (int delta)
     playNotes (*this, state, chord.notes, std::nullopt, 0.75f, 0.0, 2.0);
 }
 
-double CompositionWidget::secondsPerChord() const
+double CompositionWidget::secondsPerBeat() const
 {
-    return 4.0 * 60.0 / juce::jmax (1.0, tempoSlider.getValue());
+    return 60.0 / juce::jmax (1.0, tempoSlider.getValue());
 }
 
 void CompositionWidget::startPlayback()
@@ -203,13 +294,18 @@ void CompositionWidget::startPlayback()
 
     const int selected = state.getSelectedChordIndex();
     playStartIndex = juce::isPositiveAndBelow (selected, static_cast<int> (progression.size())) && selected < static_cast<int> (progression.size()) - 1 ? selected : 0;
-    playCount = static_cast<int> (progression.size()) - playStartIndex;
-    playChordSeconds = secondsPerChord();
+    const double beatSeconds = secondsPerBeat();
 
     // Everything is scheduled now, sample-accurately, on the audio thread.
-    for (int i = 0; i < playCount; ++i)
-        playNotes (*this, state, progression[static_cast<std::size_t> (playStartIndex + i)].notes, std::nullopt,
-                   0.75f, i * playChordSeconds, playChordSeconds * 0.97);
+    playEnds.clear();
+    double start = 0.0;
+    for (std::size_t i = static_cast<std::size_t> (playStartIndex); i < progression.size(); ++i)
+    {
+        const double length = progression[i].beats * beatSeconds;
+        playNotes (*this, state, progression[i].notes, std::nullopt, 0.75f, start, length * 0.97);
+        start += length;
+        playEnds.push_back (start);
+    }
 
     playing = true;
     playingIndex = -1;
@@ -234,9 +330,9 @@ void CompositionWidget::stopPlayback()
 void CompositionWidget::timerCallback()
 {
     const double elapsed = (juce::Time::getMillisecondCounterHiRes() - playStartMs) / 1000.0;
-    const int step = static_cast<int> (elapsed / playChordSeconds);
+    const auto step = static_cast<int> (std::upper_bound (playEnds.begin(), playEnds.end(), elapsed) - playEnds.begin());
 
-    if (step >= playCount)
+    if (step >= static_cast<int> (playEnds.size()))
     {
         const bool again = loopToggle.getToggleState();
         playing = false; // let the last chord ring
@@ -275,6 +371,7 @@ void CompositionWidget::refreshScore()
             c.notes.push_back (noteTo12 (note, n));
         c.inversion = inversionOf (pc.chord, pc.notes, n);
         c.roman = pc.degree;
+        c.beats = pc.beats;
         // The chord symbol is recomputed from the spelling so it matches the staff (Db, not C#).
 
         // Tablature in the real tuning: N-TET frets.
@@ -333,6 +430,11 @@ void CompositionWidget::resized()
     nextVoicing.setBounds (transport.removeFromRight (28).reduced (0, 1));
     voicingLabel.setBounds (transport.removeFromRight (100));
     previousVoicing.setBounds (transport.removeFromRight (28).reduced (0, 1));
+    transport.removeFromRight (12);
+    deleteButton.setBounds (transport.removeFromRight (86).reduced (0, 1));
+    transport.removeFromRight (8);
+    durationBox.setBounds (transport.removeFromRight (110).reduced (0, 2));
+    durationLabel.setBounds (transport.removeFromRight (50));
 
     area.removeFromTop (4);
     viewport.setBounds (area);

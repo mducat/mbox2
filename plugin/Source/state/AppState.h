@@ -21,10 +21,15 @@ struct ProgressionChord
     std::vector<int> notes;   // voicing as note numbers of the current tuning (= MIDI notes in 12-TET), ascending
     std::string degree;       // roman numeral label in the current key: "V7/V", "ii°7", "i6/4" (may be empty)
     std::string symbol;       // chord symbol: "D7", "Bdim7/Ab"... (chord.symbol() if left empty)
+    int beats = kDefaultBeats; // duration in quarter-note beats (4 = one bar of 4/4)
+
+    static constexpr int kDefaultBeats = 4;
+    static constexpr int kMinBeats = 1, kMaxBeats = 8;
 
     friend bool operator== (const ProgressionChord& a, const ProgressionChord& b)
     {
-        return a.chord == b.chord && a.notes == b.notes && a.degree == b.degree && a.symbol == b.symbol;
+        return a.chord == b.chord && a.notes == b.notes && a.degree == b.degree && a.symbol == b.symbol
+            && a.beats == b.beats;
     }
 };
 
