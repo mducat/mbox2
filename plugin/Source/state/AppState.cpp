@@ -29,6 +29,7 @@ namespace
         const juce::Identifier degree { "degree" };
         const juce::Identifier symbol { "symbol" };
         const juce::Identifier manualNotes { "manualNotes" };
+        const juce::Identifier noteNaming { "noteNaming" };
     } // namespace ids
 
     void sortUnique (std::vector<int>& v)
@@ -122,6 +123,19 @@ void AppState::setKey (theory::PitchClass tonic, const theory::ScaleType& type)
 
     key = newKey;
     notify (keyChanged);
+}
+
+// ---------------------------------------------------------------------------
+void AppState::setNoteNaming (theory::NoteNaming naming)
+{
+    const auto previous = theory::noteNaming();
+    if (naming == previous)
+        return;
+
+    theory::setNoteNaming (naming);
+    for (auto& c : progression)
+        c.symbol = theory::convertNoteNames (c.symbol, previous, naming);
+    notify (notationChanged);
 }
 
 // ---------------------------------------------------------------------------
@@ -356,6 +370,7 @@ juce::ValueTree AppState::toValueTree() const
     root.appendChild (p, nullptr);
 
     root.setProperty (ids::manualNotes, intsToString (manualNotes), nullptr);
+    root.setProperty (ids::noteNaming, theory::noteNaming() == theory::NoteNaming::Solfege ? "solfege" : "english", nullptr);
     return root;
 }
 
@@ -363,6 +378,11 @@ void AppState::restoreFromValueTree (const juce::ValueTree& tree)
 {
     if (! tree.hasType (ids::state))
         return;
+
+    // Before the progression: its stored symbols were written in this naming.
+    if (tree.hasProperty (ids::noteNaming))
+        theory::setNoteNaming (tree.getProperty (ids::noteNaming).toString() == "solfege" ? theory::NoteNaming::Solfege
+                                                                                          : theory::NoteNaming::English);
 
     if (const auto t = tree.getChildWithName (ids::tuning); t.isValid())
     {

@@ -54,6 +54,7 @@ public:
         progressionChanged = 1 << 2,  // chords added / removed / edited
         selectionChanged   = 1 << 3,  // selected progression index
         activeNotesChanged = 1 << 4,  // held or manual notes
+        notationChanged    = 1 << 5,  // note naming (C D E / Do Re Mi): every label must be rebuilt
         allChanged         = 0xff
     };
 
@@ -103,6 +104,14 @@ public:
     int getSelectedChordIndex() const noexcept { return selectedIndex; }
     void setSelectedChordIndex (int index);
     const ProgressionChord* getSelectedChord() const noexcept;
+
+    // -- Note naming -----------------------------------------------------------
+
+    /** English (C D E...) or solfege (Do Re Mi...) names, used by every widget (process-wide, see theory::NoteNaming). */
+    theory::NoteNaming getNoteNaming() const noexcept { return theory::noteNaming(); }
+
+    /** Switches the naming: stored chord symbols are converted and listeners get notationChanged. */
+    void setNoteNaming (theory::NoteNaming naming);
 
     // -- Active notes --------------------------------------------------------
 

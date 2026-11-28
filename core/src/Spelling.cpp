@@ -1,4 +1,5 @@
 #include "mbox/theory/Spelling.h"
+#include "mbox/theory/NoteNaming.h"
 
 #include <algorithm>
 #include <array>
@@ -37,7 +38,7 @@ int SpelledPitchClass::lineOfFifths() const noexcept
 
 std::string SpelledPitchClass::name() const
 {
-    std::string s (1, "CDEFGAB"[static_cast<int> (letter)]);
+    std::string s = letterName (static_cast<int> (letter));
     if (alter > 0)
     {
         // Double sharps are written "x" (Fx), as on the staff.

@@ -1,5 +1,7 @@
 #include "PianoView.h"
 
+#include <mbox/theory/NoteNaming.h>
+
 using namespace instrument_ui;
 
 PianoView::PianoView()
@@ -97,7 +99,7 @@ void PianoView::paint (juce::Graphics& g)
             g.setColour (juce::Colours::grey);
             g.setFont (juce::FontOptions (fontSize));
             const int octave = pitch / snapshot.stepsPerOctave - 1;
-            g.drawText ("C" + juce::String (octave), labelArea, juce::Justification::centred);
+            g.drawText (juce::String::fromUTF8 (mbox::theory::letterName (0).c_str()) + juce::String (octave), labelArea, juce::Justification::centred);
         }
     };
 

@@ -1,4 +1,5 @@
 add_library(mbox_theory STATIC
+    src/NoteNaming.cpp
     src/PitchClass.cpp
     src/Scale.cpp
     src/Chord.cpp

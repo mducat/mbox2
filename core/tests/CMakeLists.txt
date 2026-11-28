@@ -8,6 +8,7 @@ FetchContent_MakeAvailable(Catch2)
 
 add_executable(mbox_theory_tests
     PitchClassTests.cpp
+    NoteNamingTests.cpp
     ScaleTests.cpp
     ChordTests.cpp
     ChordNamingTests.cpp
