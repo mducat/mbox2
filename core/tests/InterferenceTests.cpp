@@ -39,6 +39,23 @@ TEST_CASE ("Two close sines beat between constructive and destructive")
     CHECK (beatViewDuration (pairs) == Approx (1.0)); // 2 cycles of 2 Hz
 }
 
+TEST_CASE ("sumAmplitudeEnvelope follows the beats of the whole sum")
+{
+    // 440 + 442 Hz: peak 2 when in phase (t = 0, 0.5 s), ~0 in opposition (0.25 s).
+    const auto env = sumAmplitudeEnvelope (sines ({ 440.0, 442.0 }), 0.5, 1.0 / 440.0, 51);
+    REQUIRE (env.size() == 51);
+    CHECK (env.front() == Approx (2.0).margin (0.02));
+    CHECK (env[25] < 0.05f);
+    CHECK (env.back() == Approx (2.0).margin (0.02));
+
+    // A single sine has a flat envelope equal to its amplitude.
+    const auto flat = sumAmplitudeEnvelope (sines ({ 300.0 }), 0.2, 1.0 / 300.0, 10);
+    for (const auto v : flat)
+        CHECK (v == Approx (1.0).margin (0.01));
+
+    CHECK (sumAmplitudeEnvelope ({}, 1.0, 0.01, 10).empty());
+}
+
 TEST_CASE ("Unequal amplitudes never cancel completely")
 {
     std::vector<Partial> p { { 300.0, 1.0, 0, 1 }, { 301.0, 0.25, 1, 4 } };

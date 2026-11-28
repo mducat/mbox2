@@ -206,7 +206,9 @@ L'onglet **Spectre harmonique** décompose le son en partiels :
   (cercles jaunes) et les pics détectés (points blancs) ;
 - sous le spectrogramme, la forme d'onde du signal (case **Onde**), calée sur
   4 périodes de la note la plus grave pour rester immobile ;
-- la bande **Interférences** (case du même nom) : pour chaque paire de
+- la bande **Interférences** (case du même nom) : en haut, l'amplitude de la
+  somme de toutes les ondes de l'accord au fil du temps (avec sa valeur au
+  curseur, « A = … », et le maximum possible quand tout est en phase) ; puis, pour chaque paire de
   partiels proches de deux notes différentes, l'amplitude de leur somme au fil
   du temps. Vert quand ils s'additionnent (constructif), rouge quand ils
   s'annulent (destructif) ; la vitesse de l'alternance est le battement
