@@ -6,5 +6,6 @@
 #include "mbox/theory/Scale.h"
 #include "mbox/theory/Chord.h"
 #include "mbox/theory/Harmony.h"
+#include "mbox/theory/Progressions.h"
 #include "mbox/theory/Spelling.h"
 #include "mbox/theory/Voicing.h"

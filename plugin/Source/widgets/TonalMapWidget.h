@@ -18,6 +18,8 @@ namespace mbox
       numeral ("V6/5/V") and a close voicing in the current tuning.
     - Chords already in the progression are highlighted on the map.
     - A chosen chord is also played (piano or guitar, "Son" selector).
+    - Progressions picked on the map ("Enchaînement") can be played or
+      appended to the progression in one click.
 */
 class TonalMapWidget final : public Widget
 {
@@ -33,6 +35,7 @@ public:
 private:
     void appStateChanged (AppState&, int changes) override;
     void syncKey();
+    ProgressionChord toProgressionChord (const theory::RomanChord&) const;
     void syncSelection();
 
     /** Map chord matching a progression chord (same chord and numeral in the current key), if any. */
