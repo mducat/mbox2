@@ -92,4 +92,19 @@ private:
 */
 std::vector<Chord> identifyChords (PitchClassSet notes, std::optional<PitchClass> bass = std::nullopt);
 
+/**
+    Best-effort name for any pitch-class set, used when identifyChords() finds
+    nothing. The name is plausible rather than official: a root, a triad/seventh
+    core and the remaining notes as tensions, adds and alterations, e.g.
+    "C(add9)", "Cm11", "C7(#9,b13)", "Csus4(b9)", "C7(b9)/E". A single note
+    gives its name, two notes the root plus the interval ("C(M3)").
+
+    Steps of an N-TET set that have no 12-TET equivalent are written as the
+    nearest interval plus a cents offset: "C(M3-14)", "C(m3+50)".
+
+    Every note is tried as the root; the simplest reading wins, the bass on ties.
+    A root other than the bass gives a slash chord.
+*/
+std::string describeChord (PitchClassSet notes, std::optional<PitchClass> bass = std::nullopt, bool preferFlats = false);
+
 } // namespace mbox::theory

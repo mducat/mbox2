@@ -91,7 +91,7 @@ void CircleOfFifthsWidget::paint (juce::Graphics& g)
     const auto chords = state.getRecognisedChords();
     juce::String chordText = "-";
     if (! active.empty())
-        chordText = chords.empty() ? juce::String ("?") : juce::String (chords.front().symbol());
+        chordText = chords.empty() ? juce::String::fromUTF8 (state.describeActiveChord().c_str()) : juce::String (chords.front().symbol());
 
     g.setColour (colours::text);
     g.setFont (juce::FontOptions (32.0f, juce::Font::bold));

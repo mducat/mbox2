@@ -125,6 +125,9 @@ public:
     /** Readings of the active notes, the one rooted on the lowest note first (empty if none). */
     std::vector<theory::Chord> getRecognisedChords() const;
 
+    /** Best-effort name of the active notes, even when no chord is recognised (empty if none). */
+    std::string describeActiveChord() const;
+
     // -- Persistence ---------------------------------------------------------
 
     juce::ValueTree toValueTree() const;
