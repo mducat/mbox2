@@ -277,7 +277,7 @@ void InstrumentWidget::refresh()
 
         if (readings.empty())
         {
-            chordName = "?";
+            chordName = juce::String::fromUTF8 (state.describeActiveChord().c_str());
         }
         else
         {

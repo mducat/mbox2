@@ -10,6 +10,7 @@ add_executable(mbox_theory_tests
     PitchClassTests.cpp
     ScaleTests.cpp
     ChordTests.cpp
+    ChordNamingTests.cpp
     TuningTests.cpp
     MicrotonalTests.cpp
     HarmonicsTests.cpp

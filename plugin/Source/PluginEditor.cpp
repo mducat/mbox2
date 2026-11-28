@@ -131,7 +131,7 @@ void MusicBox2Editor::refreshHeader()
     const auto chords = state.getRecognisedChords();
     juce::String text;
     if (! state.getActiveNotes().empty())
-        text = chords.empty() ? juce::String ("?") : juce::String (chords.front().symbol());
+        text = chords.empty() ? juce::String::fromUTF8 (state.describeActiveChord().c_str()) : juce::String (chords.front().symbol());
     chordLabel.setText (text, juce::dontSendNotification);
 }
 

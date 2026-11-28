@@ -307,6 +307,15 @@ std::vector<theory::Chord> AppState::getRecognisedChords() const
                                    tuning.pitchClassOf (notes.front()));
 }
 
+std::string AppState::describeActiveChord() const
+{
+    const auto notes = getActiveNotes();
+    if (notes.empty())
+        return {};
+    return theory::describeChord (theory::PitchClassSet::fromNotes (notes, tuning.divisions()),
+                                  tuning.pitchClassOf (notes.front()));
+}
+
 // ---------------------------------------------------------------------------
 juce::ValueTree AppState::toValueTree() const
 {
